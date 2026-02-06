@@ -144,9 +144,10 @@ class ECGRawDatasetSQL(torch.utils.data.Dataset):
                         events = events_json or []
                         
                     for event in events:
-                        # Step 1B: Filter valid events
-                        if not event.get("used_for_training", False):
-                            continue
+                        # UNIFIED TRAINING: Removed filter. 
+                        # We train on ALL valid events found in ecg_segments.
+                        # if not event.get("used_for_training", False):
+                        #     continue
                             
                         # Never use pattern_label for training (per instructions)
                         # We use event_type which maps to the clinical class

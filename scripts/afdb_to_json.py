@@ -20,8 +20,10 @@ def convert_record(record_name):
         fs = fields.get('fs', 250) if isinstance(fields, dict) else fields.fs
         ecg = sig[:, 0]
 
+        scale_factor = 1.0
         if fs != 250:
-            ecg = resample(ecg, int(len(ecg) * 250 / fs))
+            scale_factor = 250 / fs
+            ecg = resample(ecg, int(len(ecg) * scale_factor))
             fs = 250
 
         ann = wfdb.rdann(record_path, "atr")
@@ -29,10 +31,12 @@ def convert_record(record_name):
         # AFDB annotation → "AFIB" or normal
         rhythm = {}
         for aos, key in zip(ann.aux_note, ann.sample):
+            # FIXED: Scale the annotation index
+            new_key = int(key * scale_factor)
             if "AFIB" in aos:
-                rhythm[key] = "Atrial Fibrillation"
+                rhythm[new_key] = "Atrial Fibrillation"
             else:
-                rhythm[key] = "Sinus Rhythm"
+                rhythm[new_key] = "Sinus Rhythm"
 
         n_segments = len(ecg) // SEG_LEN
 

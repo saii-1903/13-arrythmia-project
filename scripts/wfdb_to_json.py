@@ -27,16 +27,21 @@ def convert_record(record_name):
         ecg = sig[:, 0]  # channel A
         fs = fields.get('fs', 250) if isinstance(fields, dict) else fields.fs
         
+        scale_factor = 1.0
         if fs != 250:
             # resample to 250
             from scipy.signal import resample
-            ecg = resample(ecg, int(len(ecg) * 250 / fs))
+            # Calculate scale factor using original fs BEFORE updating it
+            scale_factor = 250 / fs
+            ecg = resample(ecg, int(len(ecg) * scale_factor))
             fs = 250
 
         # assign per-beat labels → convert to segment labels
         beat_labels = {}
         for idx, sym in zip(ann.sample, ann.symbol):
-            beat_labels[idx] = MITDB_LABEL_MAP.get(sym, "Sinus Rhythm")
+            # FIXED: Scale the annotation index
+            new_idx = int(idx * scale_factor)
+            beat_labels[new_idx] = MITDB_LABEL_MAP.get(sym, "Sinus Rhythm")
 
         n_segments = len(ecg) // SEG_LEN
         
