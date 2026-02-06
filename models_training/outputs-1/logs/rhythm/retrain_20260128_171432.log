@@ -1,0 +1,48 @@
+======================================================================
+RETRAINING SESSION STARTED: 2026-01-28 17:14:32
+TASK: RHYTHM
+Log file: outputs\logs\rhythm\retrain_20260128_171432.log
+Epochs: 30, Batch Size: 32, LR: 0.0005
+======================================================================
+
+Using device: cpu
+
+🛡️  Verifying Class List Integrity...
+✅ Class Integrity Check Passed. Retraining on 15 classes.
+Connecting to DB for task: rhythm (Pre-loading optimized)...
+Executing query for task=RHYTHM...
+Executing query...
+Fetched 1472 rows. Processing...
+[SQL DATASET] Indexed 1472 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+
+CLASS DISTRIBUTION (RHYTHM)
+  00 Supraventricular Tachycardia   -> 0
+  01 Atrial Fibrillation            -> 500
+  02 Atrial Flutter                 -> 552
+  03 Junctional Rhythm              -> 0
+  04 Idioventricular Rhythm         -> 0
+  05 Ventricular Tachycardia        -> 0
+  06 Ventricular Fibrillation       -> 0
+  07 1st Degree AV Block            -> 0
+  08 2nd Degree AV Block Type 1     -> 0
+  09 2nd Degree AV Block Type 2     -> 1
+  10 3rd Degree AV Block            -> 0
+  11 Bundle Branch Block            -> 0
+  12 Artifact                       -> 416
+  13 PSVT                           -> 2
+  14 Pause                          -> 1
+⚠️  Rare classes detected. Using TIME-BASED split without stratification.
+Connecting to DB for task: rhythm (Pre-loading optimized)...
+Executing query for task=RHYTHM...
+Executing query...
+Fetched 1472 rows. Processing...
+[SQL DATASET] Indexed 1472 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+Connecting to DB for task: rhythm (Pre-loading optimized)...
+Executing query for task=RHYTHM...
+Executing query...
+Fetched 1472 rows. Processing...
+[SQL DATASET] Indexed 1472 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+💡 No existing checkpoint found. Standard training from scratch.

@@ -27,10 +27,8 @@
             overflow: hidden;
             background-image: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%);
             font-size: 15px;
-            /* Base size up from default */
         }
 
-        /* Glassmorphism Utilities */
         .glass-panel {
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -51,14 +49,9 @@
 
         #segmentInfo {
             font-size: 24px;
-            /* +4px for visibility */
             font-weight: 600;
             color: var(--accent-secondary);
             text-shadow: 0 0 10px rgba(0, 204, 255, 0.3);
-        }
-
-        #annotationBadge {
-            font-size: 12px !important;
         }
 
         #navButtons button {
@@ -68,25 +61,12 @@
             color: white;
             transition: all 0.2s;
             font-size: 14px;
-            /* +1px */
         }
 
         #navButtons button:hover {
             background: var(--accent-secondary);
             color: black;
             box-shadow: 0 0 10px var(--accent-secondary);
-        }
-
-        #uploadForm {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            /* +1px */
-        }
-
-        #uploadForm button {
-            background: linear-gradient(45deg, #0077ff, #00ccff);
         }
 
         #mainContainer {
@@ -99,7 +79,7 @@
         }
 
         #ecgArea {
-            flex: 0 0 50%;
+            flex: 0 0 55%;
             padding: 0;
             border-radius: 12px;
             overflow: hidden;
@@ -118,9 +98,8 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 12px;
-            overflow-y: auto;
-            min-height: 0;
-            padding-bottom: 20px;
+            overflow: hidden;
+            /* Info area shouldn't scroll, individual cards can */
         }
 
         .card {
@@ -130,13 +109,13 @@
             border: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
+            overflow-y: auto;
         }
 
         .card h3 {
             margin: 0 0 12px 0;
             color: var(--accent-primary);
-            font-size: 16px;
-            /* +2px */
+            font-size: 14px;
             text-transform: uppercase;
             letter-spacing: 1px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -145,8 +124,7 @@
 
         textarea,
         select,
-        input[type="text"],
-        input[type="number"] {
+        input {
             width: 100%;
             background: rgba(0, 0, 0, 0.3);
             color: #fff;
@@ -156,728 +134,473 @@
             border-radius: 4px;
             box-sizing: border-box;
             font-family: inherit;
-            font-size: 14px;
-            /* Explicit size */
-        }
-
-        select:focus,
-        textarea:focus,
-        input:focus {
-            outline: none;
-            border-color: var(--accent-secondary);
-        }
-
-        button {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            color: #fff;
-            cursor: pointer;
-            font-size: 14px;
-            /* +1px */
-            font-weight: 500;
-            transition: transform 0.1s;
-        }
-
-        button:active {
-            transform: scale(0.98);
-        }
-
-        #probTable {
-            width: 100%;
-            border-collapse: collapse;
             font-size: 13px;
-            /* +1px */
         }
 
-        #probTable td {
-            padding: 4px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        #probTable tr.highlight {
-            color: var(--accent-primary);
-            font-weight: bold;
-        }
-
-        /* Scanline effect for ECG */
-        #ecgArea::after {
-            content: " ";
-            display: block;
+        /* State Overlays */
+        .state-overlay {
             position: absolute;
             top: 0;
             left: 0;
-            bottom: 0;
-            right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 2;
-            background-size: 100% 2px, 3px 100%;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
             pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .state-overlay.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .overlay-warmup {
+            background: rgba(30, 30, 30, 0.85);
+            color: #888;
+        }
+
+        .overlay-unreliable {
+            background: rgba(80, 60, 20, 0.6);
+            color: #ffcc00;
+        }
+
+        .overlay-msg {
+            font-size: 28px;
+            font-weight: bold;
+            border: 2px solid currentColor;
+            padding: 20px 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Suppressed Side Panel */
+        #suppressedPanel {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            width: 220px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .suppressed-card {
+            background: rgba(20, 20, 20, 0.9);
+            border-left: 4px solid #ff4444;
+            padding: 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Inspector Modal */
+        #inspectorModal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            background: #151515;
+            border: 1px solid var(--accent-secondary);
+            z-index: 1000;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 0 100px rgba(0, 0, 0, 1);
+        }
+
+        .close-btn {
+            float: right;
+            cursor: pointer;
+            font-size: 20px;
+            color: var(--text-muted);
+        }
+
+        .inspect-row {
+            margin-bottom: 15px;
+        }
+
+        .inspect-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .inspect-value {
+            font-size: 16px;
+            margin-top: 5px;
+            color: white;
         }
     </style>
 </head>
 
 <body>
-
     <div id="topBar">
-        <div style="display:flex;align-items:center;gap:15px;">
-            <div id="segmentInfo">
-                SEGMENT <span id="segmentID">--</span>
-                <span id="annotationBadge"
-                    style="display:none; margin-left:10px; font-size:11px; background:var(--accent-primary); color:black; padding:2px 6px; border-radius:4px; font-weight:bold; vertical-align:middle;">
-                    ✓ ANNOTATED
-                </span>
-            </div>
-            <div id="navButtons" style="display:flex; align-items:center;">
+        <div style="display:flex; align-items:center; gap:20px;">
+            <div id="segmentInfo">SEGMENT <span id="segmentID">--</span></div>
+            <div id="navButtons">
                 <button id="prevBtn">◀ Prev</button>
                 <button id="nextBtn">Next ▶</button>
-
-                <div style="margin-left:15px; display:flex; gap:5px; align-items:center;">
-                    <input type="number" id="jumpInput" placeholder="#"
-                        style="width:60px; padding:4px; font-size:12px; height:28px; margin:0;">
-                    <button id="jumpBtn" style="padding:4px 10px; height:28px;">Go</button>
-                </div>
             </div>
         </div>
-
-        <div style="display:flex; align-items:center; gap:15px; font-size:13px;">
-            <div class="glass-panel"
-                style="padding:5px 10px; border-radius:6px; display:flex; align-items:center; gap:8px;">
-                <label for="correctorName" style="color:var(--text-muted)">Annotator:</label>
-                <input type="text" id="correctorName" placeholder="Dr. Cardio"
-                    style="width:100px; padding:4px; margin:0; border:none; background:transparent; color:white; font-weight:bold;"
-                    value="Cardiologist">
-            </div>
-
-            <form id="uploadForm" method="POST" action="/upload_and_process" enctype="multipart/form-data">
-                <input type="file" name="file" id="fileInput" accept=".json" style="color:var(--text-muted)">
-                <button type="submit">Upload JSON</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Retrain Bar -->
-    <div style="padding: 0 20px; margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
-        <div id="retrainStatus" style="font-size:12px; font-family:monospace; color:var(--accent-primary);"></div>
-        <button id="retrainBtn" style="background:#222; border:1px solid #444; font-size:11px;">🛠 Retrain Model (using
-            corrections)</button>
+        <div id="stateBadge" style="font-size:12px; color:var(--accent-primary); font-family:monospace;">STABLE</div>
     </div>
 
     <div id="mainContainer">
         <div id="ecgArea" class="glass-panel">
             <canvas id="ecgCanvas"></canvas>
+
+            <div id="overlayWarmup" class="state-overlay overlay-warmup">
+                <div class="overlay-msg">System Initializing...</div>
+            </div>
+            <div id="overlayUnreliable" class="state-overlay overlay-unreliable">
+                <div class="overlay-msg">Poor Signal Quality</div>
+            </div>
+
+            <div id="suppressedPanel"></div>
         </div>
 
         <div id="infoArea">
-            <!-- 1. Prediction -->
+            <!-- 1. Decision -->
             <div class="card">
-                <h3>AI Analysis</h3>
-                <div id="arrLabel" style="font-size:16px; font-weight:bold; color:white; margin-bottom:10px;">Loading...
-                </div>
-                <div id="probTableContainer" style="overflow-y:auto; flex:1;"></div>
-            </div>
-
-            <!-- 2. Features -->
-            <div class="card">
-                <h3>Vitals & Features</h3>
-                <div style="font-size:24px; font-weight:300; color:var(--accent-primary); margin-bottom:5px;">
-                    <span id="hrValue">--</span> <span style="font-size:12px; color:var(--text-muted)">BPM</span>
-                </div>
-                <div
-                    style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:13px; color:var(--text-muted);">
-                    <div>PR Interval:<br><span id="prValue" style="color:white">--</span> ms</div>
-                    <div>QRS Width:<br><span id="qrsValue" style="color:white">--</span> ms</div>
-                </div>
-                <div style="margin-top:15px; font-size:12px; line-height:1.4; color:#ccc;" id="xaiText">
-                    (Explanation text)
+                <h3>Primary Conclusion</h3>
+                <div id="arrLabel" style="font-size:20px; font-weight:bold; color:white; margin-bottom:10px;">--</div>
+                <div id="backgroundLabel" style="font-size:13px; color:var(--text-muted);">Background: --</div>
+                <div style="margin-top:20px;">
+                    <button id="analyzeBtn" style="background:var(--accent-secondary); color:black; width:100%;">Run
+                        Decision Engine</button>
                 </div>
             </div>
 
-            <!-- 3. Annotation Controls -->
+            <!-- 2. Vitals -->
             <div class="card">
-                <h3>Expert Annotation</h3>
-
-                <!-- Split Dropdowns -->
-                <div style="margin-bottom:10px;">
-                    <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:2px;">Rhythm
-                        Diagnosis</label>
-                    <select id="annoRhythm">
-                        <option value="">Loading...</option>
-                    </select>
+                <h3>Vitals Features</h3>
+                <div style="font-size:32px; font-weight:300; color:var(--accent-primary); margin-bottom:10px;">
+                    <span id="hrValue">--</span> <span style="font-size:14px; color:var(--text-muted)">BPM</span>
                 </div>
-
-                <div style="margin-bottom:10px;">
-                    <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:2px;">Ectopy /
-                        Events</label>
-                    <select id="annoEctopy">
-                        <option value="None">None</option>
-                        <option value="PVC">PVC</option>
-                        <option value="PAC">PAC</option>
-                        <option value="Run">Run</option>
-                        <option value="Bigeminy">Bigeminy</option>
-                        <option value="Trigeminy">Trigeminy</option>
-                        <option value="Couplet">Couplet</option>
-                    </select>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px;">
+                    <div>PR <span id="prValue" style="color:white">--</span>ms</div>
+                    <div>QRS <span id="qrsValue" style="color:white">--</span>ms</div>
                 </div>
-
-                <!-- Uncertainty Checkbox -->
-                <div style="margin-top:5px; display:flex; align-items:center;">
-                    <input type="checkbox" id="annoUncertain" style="width:16px; height:16px; margin:0 8px 0 0;">
-                    <label for="annoUncertain"
-                        style="font-size:12px; color:var(--text-muted); cursor:pointer;">Uncertain / Borderline</label>
-                </div>
-
-                <div style="display:flex; gap:10px; margin-top:15px;">
-                    <button id="saveAnnotationBtn" style="background:var(--accent-primary); color:black; flex:1;">Save
-                        Only</button>
-                    <button id="submitAndNextBtn" style="background:var(--accent-secondary); color:black; flex:1;">Save
-                        & Next ➔</button>
-                </div>
-                <div id="annotationStatus" style="margin-top:8px; font-size:11px; text-align:center;"></div>
             </div>
 
-            <!-- 4. Notes & R-Peaks -->
+            <!-- 3. Expert Annotation -->
             <div class="card">
-                <h3>Clinical Notes</h3>
-                <textarea id="annoNotes" rows="3" placeholder="Add clinical observations..."></textarea>
+                <h3>Expert Mode: Event Annotation</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;">
+                    <button id="mark-start" style="font-size: 11px;">▶ Mark Start</button>
+                    <button id="mark-end" style="font-size: 11px;">⏹ Mark End</button>
+                </div>
+                <div id="annotation-status"
+                    style="font-size: 11px; margin-bottom: 10px; color: var(--accent-secondary);">
+                    Start: <span id="start-val">--</span>s | End: <span id="end-val">--</span>s
+                </div>
 
-                <h3 style="margin-top:15px; font-size:12px; border:none; padding:0;">R-Peak Locations (samples)</h3>
-                <textarea id="annoRPeaks" rows="2"
-                    style="font-family:monospace; font-size:11px; color:var(--text-muted);"></textarea>
+                <select id="event-type">
+                    <option value="PAC">PAC</option>
+                    <option value="PVC">PVC</option>
+                    <option value="AF">Atrial Fibrillation</option>
+                    <option value="VT">Ventricular Tachycardia</option>
+                    <option value="SVT">Supraventricular Tachycardia</option>
+                </select>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 10px;">
+                    <button id="confirm-event" style="background: var(--accent-primary); color: black;">Confirm</button>
+                    <button id="reject-event" style="background: #ff4444; color: white;">Reject</button>
+                </div>
+            </div>
+
+            <!-- 4. Clinical XAI -->
+            <div class="card">
+                <h3>Reasoning Ledger</h3>
+                <div id="xaiText" style="font-size:12px; line-height:1.5; color:#ccc;">(Analyze to populate)</div>
             </div>
         </div>
     </div>
 
-    <script>
-        const INITIAL_SEGMENT_ID = {{ initial_segment_id }};
-        const TARGET_FS = {{ TARGET_FS }};
-    </script>
+    <!-- Inspector -->
+    <div id="inspectorModal" class="glass-panel">
+        <span class="close-btn" onclick="document.getElementById('inspectorModal').style.display='none'">✕</span>
+        <h2 id="inspectTitle" style="margin:0; color:var(--accent-primary);">Event Detail</h2>
+        <div id="inspectorContent" style="margin-top:20px;"></div>
+    </div>
 
     <script>
+        var INITIAL_SEGMENT_ID = {{ initial_segment_id }};
+        var TARGET_FS = {{ TARGET_FS }};
+
         let currentSegment = INITIAL_SEGMENT_ID;
+        let ecgSignal = [];
+        let rPeaks = [];
+        let currentDecision = null;
+        let viewStart = 0;
+        let viewEnd = 0;
+
         const canvas = document.getElementById("ecgCanvas");
         const ctx = canvas.getContext("2d");
 
-        let ecgSignal = [];
-        let ecgRPeaksRaw = "";
-        let saliencyData = [];
-        let viewStart = 0;
-        let viewEnd = 0;
-        let isPanning = false;
-        let lastX = 0;
+        async function loadSegment(id) {
+            currentSegment = id;
+            document.getElementById("segmentID").innerText = id;
+            const res = await fetch(`/api/segment/${id}`);
+            const data = await res.json();
 
-        // ---- DYNAMIC DROPDOWN ----
-        function populateDropdown(classes) {
-            // Function signature kept for potential legacy calls, but main logic is now populateRhythmDropdown
+            ecgSignal = data.raw_signal || [];
+            rPeaks = (data.r_peaks || "").split(",").map(Number).filter(n => !isNaN(n));
+
+            // Basic Vitals from Meta
+            document.getElementById("hrValue").innerText = data.mean_hr ? data.mean_hr.toFixed(0) : "--";
+            document.getElementById("prValue").innerText = data.pr_interval ? data.pr_interval.toFixed(0) : "--";
+            document.getElementById("qrsValue").innerText = data.qrs_mean_ms ? data.qrs_mean_ms.toFixed(0) : "--";
+
+            viewStart = 0;
+            viewEnd = ecgSignal.length - 1;
+
+            // Reset decision state
+            currentDecision = null;
+            document.getElementById("overlayWarmup").classList.remove("visible");
+            document.getElementById("overlayUnreliable").classList.remove("visible");
+            document.getElementById("suppressedPanel").innerHTML = "";
+            document.getElementById("xaiText").innerText = "Analyzing...";
+
+            redraw();
+            runAnalysis();
         }
 
-        function resizeCanvas() {
-            canvas.width = canvas.clientWidth;
-            canvas.height = canvas.clientHeight;
-            redrawECG();
-        }
-        window.addEventListener("resize", resizeCanvas);
-        // Initial resize
-        setTimeout(resizeCanvas, 100);
+        async function runAnalysis() {
+            const res = await fetch(`/api/xai/${currentSegment}`);
+            const data = await res.json();
+            currentDecision = data;
 
-        function parseRPeaks(rpField) {
-            if (!rpField) return [];
-            const s = rpField.toString();
-            if (s.trim() === "") return [];
-            return s.split(",").map(x => parseInt(x.trim())).filter(x => !isNaN(x));
-        }
+            // Update States
+            document.getElementById("overlayWarmup").classList.toggle("visible", data.segment_state === "WARMUP");
+            document.getElementById("overlayUnreliable").classList.toggle("visible", data.segment_state === "UNRELIABLE");
 
-        function drawGrid(ctx, w, h, startIdx, endIdx, minV, maxV) {
-            ctx.save();
-            ctx.clearRect(0, 0, w, h); // Clear for clean redraw
+            // Labels
+            document.getElementById("backgroundLabel").innerText = "Background: " + data.background_rhythm;
+            document.getElementById("xaiText").innerHTML = (data.explanation || "").replace(/\n/g, "<br>");
 
-            const numSamples = endIdx - startIdx;
-
-            // --- STANDARD ECG SCALING ENFORCEMENT ---
-            // We want 1mV = X pixels AND 1s = 2.5 * X pixels (standard 25mm/s vs 10mm/mV)
-            // But on a digital zoomable screen, we just want grid lines to align with UNITS.
-            // Major Grid = 0.20s (5mm) / 0.5mV (5mm)
-            // Minor Grid = 0.04s (1mm) / 0.1mV (1mm)
-
-            // Vertical Scale (Voltage aka Y-axis)
-            // We already have 'scaleY' passed implicitly via minV/maxV calc in redrawECG
-            // Recalculate robustly here:
-            const valueRange = maxV - minV;
-            // scaleY is pixels per 1 Volt (because valueRange is in V/mV units)
-            // Actually, values are usually in mV. Let's assume input signal is mV.
-            // If scaleY = pixels per unit.
-            const scaleY = h / (valueRange || 1);
-
-            // Horizontal Scale (Time aka X-axis)
-            // seconds displayed = numSamples / TARGET_FS
-            const secondsVisible = numSamples / TARGET_FS;
-            const pxPerSecond = w / secondsVisible;
-
-            // Colors - Bright / Neon / Standard Pink Hybrid
-            // Increased opacity and thickness for "Bright" request
-            const colMajor = "rgba(255, 40, 110, 0.75)";  // Very Bright Pink/Red
-            const colMinor = "rgba(255, 60, 120, 0.35)"; // Visible Faint Pink
-
-            ctx.lineWidth = 1;
-
-            // --- VERTICAL LINES (Time) ---
-            // We iterate in time units (seconds)
-            const startTime = startIdx / TARGET_FS;
-            const endTime = endIdx / TARGET_FS;
-
-            // Align to 0.04s grid
-            const timeStep = 0.04;
-            const startGridT = Math.floor(startTime / timeStep) * timeStep;
-
-            for (let t = startGridT; t < endTime + timeStep; t += timeStep) {
-                // Determine if Major (0.2s)
-                // Use epsilon for float precision
-                const isMajor = Math.abs((t / 0.2) - Math.round(t / 0.2)) < 0.001;
-
-                const x = (t - startTime) * pxPerSecond;
-                if (x < -1 || x > w + 1) continue;
-
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, h);
-                ctx.strokeStyle = isMajor ? colMajor : colMinor;
-                ctx.lineWidth = isMajor ? 1.5 : 0.8; // Thicker lines
-                ctx.stroke();
+            const displayEvents = data.final_display_events || [];
+            if (displayEvents.length > 0) {
+                document.getElementById("arrLabel").innerText = displayEvents[0].event_type;
+                document.getElementById("arrLabel").style.color = displayEvents[0].event_category === "ECTOPY" ? "#ff4444" : "var(--accent-secondary)";
+            } else {
+                document.getElementById("arrLabel").innerText = data.background_rhythm;
+                document.getElementById("arrLabel").style.color = "white";
             }
 
-            // --- HORIZONTAL LINES (Voltage) ---
-            // Iterate in Voltage units
-            // Align to 0.1mV grid
-            const voltStep = 0.1;
-            const startGridV = Math.floor(minV / voltStep) * voltStep;
+            // Suppressed Panel
+            const panel = document.getElementById("suppressedPanel");
+            panel.innerHTML = "";
+            (data.events || []).filter(e => e.display_state === "HIDDEN").forEach(e => {
+                const div = document.createElement("div");
+                div.className = "suppressed-card";
+                div.innerHTML = `<b>${e.event_type}</b><br><span style="font-size:10px; opacity:0.6;">Suppressed by: ${e.suppressed_by}</span>`;
+                div.onclick = () => inspectEvent(e);
+                panel.appendChild(div);
+            });
 
-            for (let v = startGridV; v < maxV + voltStep; v += voltStep) {
-                // Determine if Major (0.5mV) - standard is 0.5mV blocks
-                const isMajor = Math.abs((v / 0.5) - Math.round(v / 0.5)) < 0.001;
-
-                // Map Voltage to Y pixel
-                // Note: Standard ECG: Positive is UP. Canvas Y is DOWN.
-                // y = h - (v - minV) * scaleY? 
-                // Let's match the trace logic exactly:
-                // In redrawECG: y = h/2 - (val - midV) * scaleY
-                // Let's reverse-engineer or just map V to Y:
-
-                // We know: h pixels covers [minV, maxV] roughly.
-                // Center is midV = (minV+maxV)/2 which maps to h/2.
-                const midV = (minV + maxV) / 2;
-                const y = (h / 2) - (v - midV) * scaleY;
-
-                if (y < -1 || y > h + 1) continue;
-
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(w, y);
-                ctx.strokeStyle = isMajor ? colMajor : colMinor;
-                ctx.lineWidth = isMajor ? 1.5 : 0.8; // Thicker lines
-                ctx.stroke();
-            }
-
-            ctx.restore();
+            redraw();
         }
 
-        function redrawECG() {
+        function redraw() {
+            if (!ecgSignal.length) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (!ecgSignal || ecgSignal.length === 0) return;
-
-            const w = canvas.width;
-            const h = canvas.height;
-            const N = ecgSignal.length;
-
-            // Safety Bounds
-            if (viewEnd <= viewStart) { viewStart = 0; viewEnd = N - 1; }
-            if (viewStart < 0) viewStart = 0;
-            if (viewEnd > N - 1) viewEnd = N - 1;
 
             const start = Math.floor(viewStart);
-            const end = Math.floor(viewEnd);
-            const visibleSamples = end - start;
-            if (visibleSamples <= 1) return;
+            const end = Math.ceil(viewEnd);
+            const visible = ecgSignal.slice(start, end + 1);
 
-            // 1. Calculate Horizontal Scale
-            const secondsVisible = visibleSamples / TARGET_FS;
-            // pxPerSec = w / visibleSamples * TARGET_FS
+            // AutoScale Y
+            const min = Math.min(...visible);
+            const max = Math.max(...visible);
+            const range = Math.max(max - min, 1.0);
+            const mid = (min + max) / 2;
+            const scaleY = (canvas.height - 100) / range;
 
-            // 2. Vertical Scale: Auto-Fit with fixed margin (Standard Digital Oscilloscope)
-            const seg = ecgSignal.slice(start, end + 1);
-            let minV_seg = 9999, maxV_seg = -9999;
-            for (let val of seg) {
-                if (val < minV_seg) minV_seg = val;
-                if (val > maxV_seg) maxV_seg = val;
-            }
-            if (minV_seg > maxV_seg) { minV_seg = -0.5; maxV_seg = 0.5; }
-
-            let range = maxV_seg - minV_seg;
-            if (range < 0.1) range = 0.1;
-
-            // Fit ~2-3mV or the actual range if larger
-            const fitRange = Math.max(range, 2.0);
-            const scaleY = (h - 40) / fitRange;
-
-            const midV = (minV_seg + maxV_seg) / 2;
-
-            // Calculate Voltage Bounds for Grid
-            const voltageSpan = h / scaleY;
-            const yStartV = midV - (voltageSpan / 2);
-            const yEndV = midV + (voltageSpan / 2);
-
-            // Draw Grid
-            drawGrid(ctx, w, h, start, end, yStartV, yEndV);
-
-            // Saliency
-            if (saliencyData && saliencyData.length === N) {
-                const salSeg = saliencyData.slice(start, end + 1);
-                const maxSal = Math.max(...salSeg, 0.01);
-                const invMaxSal = 1 / maxSal;
-                for (let i = 0; i < visibleSamples; i++) {
-                    const x1 = (i / visibleSamples) * w;
-                    const x2 = ((i + 1) / visibleSamples) * w;
-                    const val = salSeg[i];
-                    if (val > 0) {
-                        const intensity = val * invMaxSal;
-                        if (intensity > 0.3) {
-                            ctx.fillStyle = `rgba(255, 200, 0, ${Math.min(intensity * 0.6, 0.5)})`;
-                            ctx.fillRect(x1, 0, x2 - x1, h);
-                        }
-                    }
-                }
-            }
-
-            // Trace
-            ctx.lineWidth = 2;
+            // Draw Trace
             ctx.strokeStyle = "#00ff99";
-            ctx.shadowColor = "#00ff99";
-            ctx.shadowBlur = 10;
+            ctx.lineWidth = 2;
             ctx.beginPath();
-
-            const invVisible = 1 / visibleSamples;
-            for (let i = 0; i < visibleSamples; i++) {
-                const x = i * w * invVisible;
-                const val = seg[i];
-                const y = h / 2 - (val - midV) * scaleY;
-
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
+            for (let i = 0; i < visible.length; i++) {
+                const x = (i / visible.length) * canvas.width;
+                const y = canvas.height / 2 - (visible[i] - mid) * scaleY;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
             }
             ctx.stroke();
-            ctx.shadowBlur = 0;
 
-            // R-Peaks
-            const rpIdx = parseRPeaks(ecgRPeaksRaw);
-            ctx.fillStyle = "rgba(255, 50, 50, 0.8)";
-            rpIdx.forEach(idx => {
+            // Draw R Peaks
+            ctx.fillStyle = "#ff4444";
+            rPeaks.forEach(idx => {
                 if (idx >= start && idx <= end) {
-                    const rel = idx - start;
-                    const x = rel * w * invVisible;
-                    const val = ecgSignal[idx];
-                    const y = h / 2 - (val - midV) * scaleY;
-
-                    ctx.fillRect(x - 3, y - 20, 6, 6);
-                    ctx.font = "11px monospace";
-                    ctx.fillText("R", x - 4, y - 25);
+                    const x = ((idx - start) / visible.length) * canvas.width;
+                    const y = canvas.height / 2 - (ecgSignal[idx] - mid) * scaleY;
+                    ctx.fillRect(x - 2, y - 20, 4, 10);
                 }
             });
-        }
 
-        // Pan/Zoom Events
-        canvas.addEventListener("wheel", (e) => {
-            e.preventDefault();
-            if (!ecgSignal || ecgSignal.length === 0) return;
-            const N = ecgSignal.length;
-            const length = viewEnd - viewStart + 1;
+            // Draw Events
+            if (currentDecision && currentDecision.final_display_events) {
+                currentDecision.final_display_events.forEach(e => {
+                    const sIdx = e.start_time * TARGET_FS;
+                    const eIdx = e.end_time * TARGET_FS;
+                    if (eIdx < start || sIdx > end) return;
 
-            if (e.ctrlKey) {
-                // ZOOM (Time Axis)
-                const zoomFactor = (e.deltaY < 0) ? 0.85 : 1.15;
-                let newLength = length * zoomFactor;
-                newLength = Math.max(200, Math.min(newLength, N));
-                const center = (viewStart + viewEnd) / 2;
-                let newStart = center - newLength / 2;
-                let newEnd = center + newLength / 2;
-                if (newStart < 0) { newStart = 0; newEnd = Math.min(newLength - 1, N - 1); }
-                if (newEnd > N - 1) { newEnd = N - 1; newStart = Math.max(0, newEnd - newLength + 1); }
-                viewStart = newStart;
-                viewEnd = newEnd;
-            } else {
-                // PAN (Scroll Time)
-                const shift = (e.deltaY > 0 ? 1 : -1) * (length * 0.1);
-                let newStart = viewStart + shift;
-                let newEnd = viewEnd + shift;
+                    const xS = Math.max(0, ((sIdx - start) / visible.length) * canvas.width);
+                    const xE = Math.min(canvas.width, ((eIdx - start) / visible.length) * canvas.width);
 
-                if (newStart < 0) {
-                    newEnd = newEnd - newStart;
-                    newStart = 0;
-                }
-                if (newEnd > N - 1) {
-                    newStart = newStart - (newEnd - (N - 1));
-                    newEnd = N - 1;
-                }
-                if (newStart < 0) newStart = 0;
+                    // 🔒 ISSUE 2: Cardiologist visualization
+                    if (e.annotation_source === "cardiologist") {
+                        ctx.fillStyle = "rgba(255, 255, 0, 0.2)";
+                        ctx.strokeStyle = "yellow";
+                        ctx.lineWidth = 3;
+                    } else {
+                        ctx.fillStyle = e.event_category === "ECTOPY" ? "rgba(255, 0, 0, 0.1)" : "rgba(0, 200, 255, 0.1)";
+                        ctx.strokeStyle = e.event_category === "ECTOPY" ? "red" : "cyan";
+                        ctx.lineWidth = 1;
+                    }
 
-                viewStart = newStart;
-                viewEnd = newEnd;
+                    ctx.fillRect(xS, 0, xE - xS, canvas.height);
+                    ctx.strokeRect(xS, 0, xE - xS, canvas.height);
+                    ctx.lineWidth = 1; // Reset
+                });
             }
-            redrawECG();
-        });
 
-        canvas.addEventListener("mousedown", (e) => { isPanning = true; lastX = e.clientX; });
-        window.addEventListener("mouseup", () => { isPanning = false; });
-        window.addEventListener("mousemove", (e) => {
-            if (!isPanning || !ecgSignal) return;
-            const dx = e.clientX - lastX;
-            lastX = e.clientX;
-            const visibleLen = viewEnd - viewStart + 1;
-            const fraction = dx / canvas.width;
-            const shift = fraction * visibleLen;
-            viewStart -= shift; viewEnd -= shift;
-            redrawECG();
-        });
+            // 🔒 WORKSTREAM 2: DRAW CURRENT SELECTION FEEDBACK
+            if (annotation.start_time !== null) {
+                const sIdx = annotation.start_time * TARGET_FS;
+                const xS = ((sIdx - start) / visible.length) * canvas.width;
 
-        const FULL_CLASS_LIST = [
-            "Sinus Rhythm", "Sinus Bradycardia", "Sinus Tachycardia", "Supraventricular Tachycardia",
-            "Atrial Fibrillation", "Atrial Flutter", "Junctional Rhythm", "Idioventricular Rhythm",
-            "Ventricular Tachycardia", "Ventricular Fibrillation", "1st Degree AV Block",
-            "2nd Degree AV Block Type 1", "2nd Degree AV Block Type 2", "3rd Degree AV Block",
-            "PVCs", "PVC Bigeminy", "PVC Trigeminy", "PVC Couplet",
-            "PAC", "PAC Bigeminy", "PAC Trigeminy", "Bundle Branch Block", "Artifact",
-            "Sinus Bradycardia + PVC", "Sinus Tachycardia + PVC", "Sinus Bradycardia + PAC",
-            "Sinus Tachycardia + PAC", "Atrial Fibrillation + PVC", "Atrial Flutter + PVC",
-            "1st Degree AV Block + PVC", "Sinus Bradycardia + PVC Bigeminy", "Sinus Tachycardia + PVC Bigeminy",
-            "Atrial Couplet", "Atrial Run", "Ventricular Run", "NSVT", "PSVT", "Pause"
-        ];
+                ctx.save();
+                ctx.strokeStyle = "yellow";
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 2;
 
-        function populateRhythmDropdown(serverClasses) {
-            const sel = document.getElementById("annoRhythm");
-            if (sel.options.length > 5) return;
+                // Draw Start Line
+                if (xS >= 0 && xS <= canvas.width) {
+                    ctx.beginPath();
+                    ctx.moveTo(xS, 0); ctx.lineTo(xS, canvas.height);
+                    ctx.stroke();
+                }
 
-            sel.innerHTML = "";
-            const classesToUse = (serverClasses && serverClasses.length > 20) ? serverClasses : FULL_CLASS_LIST;
+                if (annotation.end_time !== null) {
+                    const eIdx = annotation.end_time * TARGET_FS;
+                    const xE = ((eIdx - start) / visible.length) * canvas.width;
 
-            classesToUse.forEach(c => {
-                // Skip complex combos if desired, or keep all
-                const opt = document.createElement("option");
-                opt.value = c;
-                opt.innerText = c;
-                sel.appendChild(opt);
-            });
-            // Ensure Sinus Rhythm is top if not already
+                    // Draw Box
+                    const xMin = Math.min(xS, xE);
+                    const xMax = Math.max(xS, xE);
+                    ctx.fillStyle = "rgba(255, 255, 0, 0.2)";
+                    ctx.fillRect(xMin, 0, xMax - xMin, canvas.height);
+
+                    // Draw End Line
+                    if (xE >= 0 && xE <= canvas.width) {
+                        ctx.beginPath();
+                        ctx.moveTo(xE, 0); ctx.lineTo(xE, canvas.height);
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
         }
 
-        function renderProbTable(classes, probs) {
-            const container = document.getElementById("probTableContainer");
+        function inspectEvent(e) {
+            const modal = document.getElementById("inspectorModal");
+            const content = document.getElementById("inspectorContent");
+            document.getElementById("inspectTitle").innerText = e.event_type;
+            content.innerHTML = `
+                <div class="inspect-row"><div class="inspect-label">Time</div><div class="inspect-value">${e.start_time.toFixed(1)}s - ${e.end_time.toFixed(1)}s</div></div>
+                <div class="inspect-row"><div class="inspect-label">Suppressed By</div><div class="inspect-value">${e.suppressed_by || 'None'}</div></div>
+                <div class="inspect-row"><div class="inspect-label">Category</div><div class="inspect-value">${e.event_category}</div></div>
+                <div class="inspect-row"><div class="inspect-label">Used for Training</div><div class="inspect-value">${e.used_for_training}</div></div>
+            `;
+            modal.style.display = "block";
+        }
 
-            // Populate Rhythm dropdown
-            populateRhythmDropdown(classes || FULL_CLASS_LIST);
+        // 🔒 WORKSTREAM 2: DASHBOARD ANNOTATION STATE
+        let annotation = {
+            start_time: null,
+            end_time: null,
+            event_type: null
+        };
 
-            if (!classes || !probs || classes.length !== probs.length) {
-                container.innerHTML = "<div style='color:#666;'>No data</div>";
+        canvas.addEventListener("click", function (e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+
+            // Convert pixel to time
+            const startIdx = Math.floor(viewStart);
+            const endIdx = Math.ceil(viewEnd);
+            const visibleLen = endIdx - startIdx + 1;
+
+            const sampleIdx = startIdx + (x / canvas.width) * visibleLen;
+            const time = sampleIdx / TARGET_FS;
+
+            if (annotation.start_time === null || (annotation.start_time !== null && annotation.end_time !== null)) {
+                annotation.start_time = time;
+                annotation.end_time = null;
+                document.getElementById("start-val").innerText = time.toFixed(2);
+                document.getElementById("end-val").innerText = "--";
+            } else {
+                annotation.end_time = time;
+                document.getElementById("end-val").innerText = time.toFixed(2);
+            }
+            redraw(); // Show selection
+        });
+
+        document.getElementById("confirm-event").onclick = async () => {
+            if (annotation.start_time === null || annotation.end_time === null) {
+                alert("Please mark both START and END points on the ECG.");
                 return;
             }
 
-            let indices = Array.from(probs.keys()).sort((a, b) => probs[b] - probs[a]); // Sort desc
+            annotation.event_type = document.getElementById("event-type").value;
 
-            let html = "<table id='probTable'><tbody>";
-            for (let i = 0; i < Math.min(indices.length, 5); i++) { // Top 5
-                let idx = indices[i];
-                const p = probs[idx] * 100;
-                const cls = (i === 0) ? "highlight" : "";
-                html += `<tr class="${cls}"><td>${classes[idx]}</td><td style="text-align:right">${p.toFixed(1)}%</td></tr>`;
-            }
-            html += "</tbody></table>";
-            container.innerHTML = html;
-        }
-
-        async function loadSegment(id) {
-            try {
-                const res = await fetch(`/api/segment/${id}`);
-                const data = await res.json();
-                if (data.error) { alert("Error: " + data.error); return; }
-
-                currentSegment = data.segment_id;
-                document.getElementById("segmentID").innerText = currentSegment;
-
-                ecgSignal = data.raw_signal || [];
-                ecgRPeaksRaw = data.r_peaks || "";
-                viewStart = 0;
-                viewEnd = ecgSignal.length > 0 ? ecgSignal.length - 1 : 0;
-                redrawECG();
-
-                // Vitals
-                document.getElementById("hrValue").innerText = (data.mean_hr > 0) ? data.mean_hr.toFixed(0) : "--";
-                document.getElementById("prValue").innerText = (data.pr_interval > 0) ? data.pr_interval.toFixed(0) : "--";
-                document.getElementById("qrsValue").innerText = (data.qrs_mean_ms > 0) ? data.qrs_mean_ms.toFixed(0) : "--";
-
-                // Annotation
-                if (data.arrhythmia_label) {
-                    document.getElementById("annoRhythm").value = data.arrhythmia_label;
-                } else {
-                    document.getElementById("annoRhythm").value = "Sinus Rhythm"; // Default
-                }
-
-                if (data.ectopy_label) {
-                    document.getElementById("annoEctopy").value = data.ectopy_label;
-                } else {
-                    document.getElementById("annoEctopy").value = "None";
-                }
-
-                // Checkbox state (not fully supported by backend retrieve yet, default false)
-                document.getElementById("annoUncertain").checked = (data.annotation_type === "BORDERLINE");
-
-                document.getElementById("annoRPeaks").value = data.r_peaks || "";
-                document.getElementById("annoNotes").value = data.notes || "";
-
-                // Show/Hide Annotated Badge
-                const badge = document.getElementById("annotationBadge");
-                if (data.corrected_by) {
-                    badge.style.display = "inline-block";
-                    badge.title = "Annotated by " + data.corrected_by + " on " + (data.corrected_at || "unknown date");
-                } else {
-                    badge.style.display = "none";
-                }
-
-                loadXAIExplanation(id);
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function loadXAIExplanation(id) {
-            document.getElementById("arrLabel").innerText = "Analyzing...";
-            const res = await fetch(`/api/xai/${id}`);
-            const data = await res.json();
-
-            if (data.classes) {
-                populateRhythmDropdown(data.classes);
-            }
-
-            document.getElementById("arrLabel").innerText = data.pred_label || "Unknown";
-            document.getElementById("xaiText").innerText = data.explanation || "";
-            saliencyData = data.saliency || [];
-
-            // --- AUTO-FILL ANNOTATION IF EMPTY ---
-            // If the segment is NOT already annotated (badge hidden), default the dropdown to the AI's suggestion.
-            const badge = document.getElementById("annotationBadge");
-            const isAnnotated = (badge.style.display !== "none");
-
-            if (!isAnnotated && data.pred_label) {
-                const sel = document.getElementById("annoRhythm");
-                // Ensure value exists
-                let options = Array.from(sel.options).map(o => o.value);
-                if (options.includes(data.pred_label)) {
-                    sel.value = data.pred_label;
-                }
-                // Also default ectopy if available in prediction (heuristic)
-                // "Sinus Rhythm" -> None. "AF + PVC" -> PVC?
-                // For now, keep Ectopy default "None" unless we parse the string.
-                if (data.pred_label.includes("PVC")) document.getElementById("annoEctopy").value = "PVC";
-                else if (data.pred_label.includes("PAC")) document.getElementById("annoEctopy").value = "PAC";
-            }
-
-            redrawECG();
-            if (data.classes && data.probs) {
-                renderProbTable(data.classes, data.probs);
-            }
-        }
-
-        // --- BUTTONS ---
-        document.getElementById("prevBtn").onclick = async () => {
-            const res = await fetch(`/api/prev_segment/${currentSegment}`);
-            const d = await res.json();
-            if (d.ok) loadSegment(d.prev);
-        };
-        document.getElementById("nextBtn").onclick = async () => {
-            const res = await fetch(`/api/next_segment/${currentSegment}`);
-            const d = await res.json();
-            if (d.ok) loadSegment(d.next);
-        };
-
-        // Jump Button Logic
-        document.getElementById("jumpBtn").onclick = () => {
-            const val = document.getElementById("jumpInput").value;
-            if (val) {
-                loadSegment(parseInt(val));
-            }
-        };
-
-        const saveAnnotation = async (loadNext) => {
             const payload = {
                 segment_id: currentSegment,
-
-                // Doctor Inputs
-                doctor_rhythm_label: document.getElementById("annoRhythm").value,
-                doctor_ectopy_label: document.getElementById("annoEctopy").value,
-                doctor_uncertain: document.getElementById("annoUncertain").checked,
-
-                // Model Inputs (Context) - Extracted from current AI display if needed, 
-                // OR we must persist them from loadSegment/loadXAI.
-                // Since this page loads XAI for the current segment, we can grab them from DOM 
-                // OR rely on backend to have saved them. 
-                // BUT the contract says "dashboard must send".
-                // Let's store them in hidden vars when XAI loads.
-                model_rhythm_label: document.getElementById("arrLabel").innerText,
-                model_ectopy_label: "None", // Placeholder, model separate outputs not fully wired to UI yet. 
-                // Wait! "arrLabel" is the combined label. 
-                // If model predicts "Sinus Rhythm", rhythm="Sinus Rhythm", ectopy="None".
-                // We should parse it or store strictly.
-                // For now, let's treat arrLabel as the Rhythm Model Output.
-
-                notes: document.getElementById("annoNotes").value,
-                r_peaks: document.getElementById("annoRPeaks").value,
-                corrected_by: document.getElementById("correctorName").value
+                event_type: annotation.event_type,
+                start_time: Math.min(annotation.start_time, annotation.end_time),
+                end_time: Math.max(annotation.start_time, annotation.end_time),
+                annotation_source: "cardiologist",
+                annotation_status: "confirmed"
             };
-            const res = await fetch(`/api/annotate`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
+
+            const res = await fetch("/api/annotate_event", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
-            const statusDiv = document.getElementById("annotationStatus");
-            if (data.status === "success") {
-                statusDiv.style.color = "var(--accent-primary)";
-                statusDiv.innerText = "Saved Successfully";
 
-                // Show Badge
-                const badge = document.getElementById("annotationBadge");
-                if (badge) {
-                    badge.style.display = "inline-block";
-                    badge.title = "Last annotated by " + payload.corrected_by;
-                }
-
-                if (loadNext) {
-                    document.getElementById("nextBtn").click();
-                }
-            } else {
-                statusDiv.style.color = "red";
-                statusDiv.innerText = "Error: " + (data.message || "Unknown error");
+            if (res.ok) {
+                alert("Event confirmed and saved for retraining!");
+                annotation = { start_time: null, end_time: null, event_type: null };
+                document.getElementById("start-val").innerText = "--";
+                document.getElementById("end-val").innerText = "--";
+                runAnalysis(); // Refresh
             }
         };
 
-        document.getElementById("saveAnnotationBtn").onclick = () => saveAnnotation(false);
-        document.getElementById("submitAndNextBtn").onclick = () => saveAnnotation(true);
-
-        // Retrain Button
-        document.getElementById("retrainBtn").onclick = async () => {
-            if (!confirm("Start retraining cycle?\nThis will update weights based on corrected mistakes.")) return;
-
-            document.getElementById("retrainStatus").innerText = "Training...";
-            const res = await fetch("/api/retrain_model", { method: "POST" });
-            const data = await res.json();
-
-            if (data.status === "success") {
-                document.getElementById("retrainStatus").innerText = "✓ Training Complete";
-                alert("Model Retrained Successfully!\nRefresh page to see updated predictions.");
-            } else {
-                document.getElementById("retrainStatus").innerText = "❌ Failed";
-                alert("Training Failed: " + data.message);
-            }
+        document.getElementById("reject-event").onclick = () => {
+            annotation = { start_time: null, end_time: null, event_type: null };
+            document.getElementById("start-val").innerText = "--";
+            document.getElementById("end-val").innerText = "--";
+            redraw();
         };
 
-        // --- INIT ---
-        loadSegment(currentSegment);
+        window.onload = () => {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            loadSegment(INITIAL_SEGMENT_ID);
+        };
 
+        document.getElementById("nextBtn").onclick = () => loadSegment(currentSegment + 1);
+        document.getElementById("prevBtn").onclick = () => loadSegment(currentSegment - 1);
+        document.getElementById("analyzeBtn").onclick = () => runAnalysis();
     </script>
 </body>
 

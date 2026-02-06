@@ -25,8 +25,10 @@ import psycopg2
 import subprocess
 
 # XAI – Option A (clinical text + model prediction)
-from xai import explain_segment, reset_model
-from data_loader import CLASS_NAMES
+from xai import explain_segment, explain_decision, reset_model
+from decision_engine.rhythm_orchestrator import RhythmOrchestrator
+from decision_engine.models import SegmentDecision
+from data_loader import CLASS_NAMES, RHYTHM_CLASS_NAMES, ECTOPY_CLASS_NAMES
 
 # Suppress harmless scipy warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -591,162 +593,70 @@ def upload_and_process():
 @app.route("/api/xai/<int:segment_id>")
 def api_xai(segment_id: int):
     """
-    Clinical XAI endpoint:
-      - loads ECG segment from disk
-      - loads features from SQL
-      - recomputes PR from waveform for better accuracy
-      - uses xai.explain_segment(segment_1d, features) to:
-          -> run model prediction
-          -> return pred_label, probabilities, explanation
+    Standardized Decision Engine & XAI Endpoint.
+    Leverages pre-computed results from ecg_segments if available.
     """
+    # 1. Try to fetch from the NEW table first (Optimized path)
+    new_data = db_service.get_segment_new(segment_id)
+    if new_data and new_data.get("events_json"):
+        # We found pre-computed or manually annotated results!
+        data = new_data["events_json"]
+        
+        # If it's just a list of events, wrap it in a standard decision structure
+        if isinstance(data, list):
+            response = {
+                "segment_index": new_data["segment_index"],
+                "segment_state": new_data["segment_state"] or "ANALYZED",
+                "background_rhythm": new_data["background_rhythm"] or "Sinus Rhythm",
+                "events": data,
+                "final_display_events": data, # All manual events are displayed
+                "explanation": "Loaded from clinical workstation ground-truth records."
+            }
+        else:
+            response = data
+            
+        return jsonify(response)
+
+    # 2. Legacy Fallback (On-the-fly calculation)
     seg = db_service.get_segment_data(segment_id)
     if not seg:
         return jsonify({"error": "Segment not found"}), 404
 
-    # 1) Load ECG signal for this segment
     raw_signal = seg.get("raw_signal")
+    if not raw_signal:
+        raw_signal = _load_and_segment_raw_data(seg["filename"], seg["segment_index"])
     
-    if not raw_signal or len(raw_signal) == 0:
-        try:
-            raw_signal = _load_and_segment_raw_data(
-                seg["filename"], seg["segment_index"]
-            )
-        except Exception as e:
-            return jsonify({"error": f"Failed to load ECG segment: {e}"}), 500
-
     segment_np = np.array(raw_signal, dtype=np.float32)
-    
-    # [FIX] Reject short segments
-    if len(segment_np) < 2000: # < 8 seconds
-        return jsonify({
-            "pred_label": "Artifact / Short",
-            "confidence": 0.0,
-            "explanation": "Signal is too short for reliable analysis (< 8s)."
-        })
-
-    # 2) Features from SQL
     features = seg.get("features_json") or {}
-
-    # 3) FRESH R-peak detection (ignore DB, use NeuroKit)
-    # This prevents bad metrics from old processing
-    try:
-        r_peaks_arr = _detect_r_peaks_neurokit(segment_np, TARGET_FS)
-    except Exception:
-        r_peaks_arr = np.array([], dtype=int)
-
-    # 4) Recompute PR interval with NeuroKit logic
-    try:
-        pr_interval_ms = _calculate_pr_interval(segment_np, r_peaks_arr, TARGET_FS)
-    except Exception:
-        pr_interval_ms = 0.0
-
-    # Put PR in features for XAI rules
-    features["pr_interval"] = float(pr_interval_ms)
-
-    # 4.5) ARTIFACT GATING (New)
-    from signal_processing.artifact_detection import check_signal_quality
     
+    from signal_processing.artifact_detection import check_signal_quality
     quality = check_signal_quality(segment_np, TARGET_FS)
-    if not quality["is_acceptable"]:
-        print(f"⚠️ Segment {segment_id} rejected due to artifacts: {quality['issues']}")
-        
-        # Return strict rejection response
-        pred_label = "Artifact / Noise"
-        # Dummy probs (1.0 for Artifact)
-        # Find index of "Artifact" if exists, else just 0s
-        probs = [0.0] * len(CLASS_NAMES)
-        if "Artifact" in CLASS_NAMES:
-            probs[CLASS_NAMES.index("Artifact")] = 1.0
-            
-        explanation = (
-            f"**Signal Rejected**: The signal quality is insufficient for reliable analysis.\n"
-            f"**Issues Detected**: {', '.join(quality['issues'])}.\n"
-            f"**Action**: Please verify electrode contact or check for patient movement."
-        )
-        saliency = []
-        
-        # Save rejection to DB
-        db_service.save_model_prediction(segment_id, pred_label, probs)
-        
-        return jsonify({
-            "pred_label": pred_label,
-            "probs": probs,
-            "explanation": explanation,
-            "saliency": saliency,
-            "classes": CLASS_NAMES,
-            "quality_issues": quality['issues']
-        })
-
-    # 5) Run the model + explanation
-    try:
-        print(f"🔍 Calling explain_segment for segment {segment_id}...")
-        xai_out = explain_segment(segment_np, features)
-        print("✅ explain_segment success")
-        
-        # Extract ML Raw Output
-        ml_pred_label = xai_out.get("pred_label", "Unknown")
-        ml_probs = xai_out.get("probabilities", [])
-        ml_confidence = max(ml_probs) if ml_probs and len(ml_probs)>0 else 0.0
-        
-        # --- ORCHESTRATION LAYER (New) ---
-        from decision_engine.rhythm_orchestrator import RhythmOrchestrator
-        orchestrator = RhythmOrchestrator()
-        
-        decision = orchestrator.decide(
-            ml_prediction={
-                "label": ml_pred_label,
-                "probs": ml_probs,
-                "confidence": ml_confidence
-            },
-            clinical_features=features,
-            sqi_result=quality  # From step 4.5
-        )
-        
-        # Override with decision
-        pred_label = decision["final_label"]
-        probs = decision["probabilities"]
-        
-        # Merge Explanations (Orchestrator Reason + XAI Detail)
-        xai_expl = xai_out.get("explanation", "")
-        orch_expl = decision.get("explanation", "")
-        
-        if decision["source"] != "ML_Model":
-            explanation = f"**Decision: {pred_label}**\n*Reason*: {orch_expl}\n\n(Model originally thought: {ml_pred_label})"
-        else:
-            explanation = xai_expl
-
-        saliency = xai_out.get("saliency", [])
-        
-    except Exception as e:
-        # Model unavailable or incompatible - provide placeholder
-        import traceback
-        traceback.print_exc()
-        print(f"⚠️  XAI unavailable: {e}")
-        pred_label = "Model Unavailable"
-        probs = []
-        explanation = (
-            "⚠️ Model prediction unavailable. "
-            "The model needs to be retrained with the current 9-class list. "
-            "You can still annotate segments manually."
-        )
-        saliency = []
-
-    # 6) Store model prediction back into SQL (best effort, non-fatal)
-    try:
-        if probs and len(probs) > 0:
-            db_service.save_model_prediction(segment_id, pred_label, probs)
-    except Exception as e:
-        print("Warning: could not save model prediction:", e)
-
-    return jsonify(
-        {
-            "pred_label": pred_label,
-            "probs": probs,
-            "explanation": explanation,
-            "saliency": saliency,
-            "classes": CLASS_NAMES,
-        }
+    ml_evidence = explain_segment(segment_np, features)
+    
+    ml_input = {
+        "label": ml_evidence.get("rhythm", {}).get("label", "Unknown"),
+        "confidence": ml_evidence.get("rhythm", {}).get("confidence", 0.0),
+        "probs": ml_evidence.get("rhythm", {}).get("probs", []),
+        "ectopy_label": ml_evidence.get("ectopy", {}).get("label", "None"),
+        "ectopy_conf": ml_evidence.get("ectopy", {}).get("confidence", 0.0)
+    }
+    
+    orchestrator = RhythmOrchestrator()
+    decision = orchestrator.decide(
+        ml_prediction=ml_input,
+        clinical_features=features,
+        sqi_result=quality,
+        segment_index=seg["segment_index"]
     )
+    
+    decision.xai_notes.update(features) 
+    explanation_text = explain_decision(decision)
+    
+    response = decision.to_dict()
+    response["explanation"] = explanation_text
+    response["saliency"] = ml_evidence.get("saliency", [])
+    
+    return jsonify(response)
 
 
 # =========================================================
@@ -758,24 +668,27 @@ def api_xai(segment_id: int):
 @app.route("/api/segment/<int:segment_id>")
 def get_segment_api(segment_id: int):
     """
-    Fetch all necessary info for a specific segment ID:
-      - ECG signal
-      - basic features (mean HR, PR, QRS width)
-      - current arrhythmia label & notes
-      - R-peaks
+    Fetch all necessary info for a specific segment ID.
+    Prioritizes the optimized ecg_segments table.
     """
-    meta = db_service.get_segment_data(segment_id)
+    # 1. Try NEW table
+    meta = db_service.get_segment_new(segment_id)
     if not meta:
-        return jsonify({"error": "Segment not found"}), 404
-
-    # ECG waveform
-    raw_signal = meta.get("raw_signal")
-    
-    if not raw_signal or len(raw_signal) == 0:
-        try:
-            raw_signal = _load_and_segment_raw_data(meta["filename"], meta["segment_index"])
-        except Exception as e:
-            return jsonify({"error": f"Failed to load ECG: {e}"}), 500
+        # Fallback to legacy
+        meta = db_service.get_segment_data(segment_id)
+        if not meta:
+            return jsonify({"error": "Segment not found"}), 404
+        
+        # Legacy load from signal files if not in JSONB
+        raw_signal = meta.get("raw_signal")
+        if not raw_signal:
+            try:
+                raw_signal = _load_and_segment_raw_data(meta["filename"], meta["segment_index"])
+            except Exception as e:
+                return jsonify({"error": f"Failed to load ECG: {e}"}), 500
+    else:
+        # Success from new table
+        raw_signal = meta.get("raw_signal")
 
     features = meta.get("features_json") or {}
     mean_hr = float(features.get("mean_hr", 0.0))
@@ -841,88 +754,48 @@ def get_segment_api(segment_id: int):
 # Annotation Save Endpoint
 # =========================================================
 
-@app.route("/api/annotate", methods=["POST"])
-def annotate_segment():
-    """
-    Receive cardiologist correction & notes:
-      - label (corrected arrhythmia)
-      - r_peaks (text)
-      - notes
-      - corrected_by (user name)
-    Stored in SQL using db_service.update_annotation(...).
-    """
-    data = request.get_json() or {}
+# LEGACY SEGMENT ANNOTATION DROPPED IN FAVOR OF EVENT ANNOTATION
 
+import uuid
+@app.route("/api/annotate_event", methods=["POST"])
+def annotate_event():
+    """
+    🔒 WORKSTREAM 2: Save cardiologist-marked event to DB.
+    """
+    data = request.json
     segment_id = data.get("segment_id")
-    label = data.get("label")
-    r_peaks = data.get("r_peaks")
-    notes = data.get("notes", "")
-    corrected_by = data.get("corrected_by", "Cardiologist")
     
-    # New Fields (Step 4 Contract)
-    doctor_rhythm_label = data.get("doctor_rhythm_label") 
-    doctor_ectopy_label = data.get("doctor_ectopy_label")
-    model_rhythm_label = data.get("model_rhythm_label")
-    model_ectopy_label = data.get("model_ectopy_label")
-    doctor_uncertain = data.get("doctor_uncertain", False)
+    if not segment_id:
+        return jsonify({"error": "Missing segment_id"}), 400
 
-    # Fallback for old frontend sending just 'label' (Rhythm)
-    if not doctor_rhythm_label and data.get("label"):
-        doctor_rhythm_label = data.get("label")
-        doctor_ectopy_label = "None" # Assume None if not provided
-        # Can't reliably infer model labels without strict frontend sending them
-        # This will default logic to BORDERLINE if model labels missing
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "event_type": data["event_type"],
+        "start_time": data["start_time"],
+        "end_time": data["end_time"],
+        "annotation_source": "cardiologist",
+        "annotation_status": "confirmed",
+        "used_for_training": True
+    }
 
-    if segment_id is None or doctor_rhythm_label is None:
-        return jsonify({"error": "Missing annotation data"}), 400
+    # 🔒 ISSUE 5: Event validation
+    if event["end_time"] - event["start_time"] < 0.04:
+        return jsonify({"error": "Event duration too small (min 40ms)"}), 400
+    if event["start_time"] < 0 or event["end_time"] > 10.0:
+        return jsonify({"error": "Event outside 10s segment boundaries"}), 400
 
-    ok = db_service.update_annotation(
-        segment_id, 
-        doctor_rhythm_label, 
-        doctor_ectopy_label,
-        r_peaks, 
-        notes, 
-        corrected_by, 
-        model_rhythm_label, 
-        model_ectopy_label,
-        doctor_uncertain
-    )
-    if not ok:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": f"Failed to save annotation for Segment {segment_id}",
-                }
-            ),
-            500,
-        )
-
-    return jsonify(
-        {
-            "status": "success",
-            "message": f"Annotation saved for Segment {segment_id}",
-        }
-    )
+    success = db_service.save_event_to_db(segment_id, event)
+    if success:
+        return jsonify({"status": "ok"})
+    else:
+        return jsonify({"error": "Failed to save to database"}), 500
 
 
 # =========================================================
 # Export Corrected Segments → retraining_data/ (JSON)
 # =========================================================
 
-@app.route("/api/export_corrected")
-def export_corrected():
-    """
-    Export corrected SQL segments to retraining_data/ as JSON.
-    Uses export_corrected_segments.py (your script).
-    """
-    try:
-        from export_corrected_segments import export_corrected_segments
-
-        export_corrected_segments()
-        return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"error": str(e)})
+# EXPORT TO JSON DROPPED - TRAINING USES DIRECT SQL CONNECTION
 
 
 # =========================================================
@@ -1006,15 +879,15 @@ def api_retrain_model():
       3) xai.reset_model()            -> reload new weights on next XAI call
     """
     try:
-        # 1) Export corrected segments - SKIPPED (Not needed for SQL-based retrain.py and was blocking)
-        # from export_corrected_segments import export_corrected_segments
-        # export_corrected_segments()
+        # 🔒 ISSUE 4: Retraining Gate enforcement
+        count = db_service.count_confirmed_cardiologist_events()
+        if count < 10: 
+            return jsonify({
+                "error": f"Insufficient data. Need at least 10 cardiologist-confirmed events (Current: {count})."
+            }), 400
 
-        # 2) Run retraining script (CPU or CUDA handled inside train code)
-        # Using retrain.py as requested
         script_path = BASE_DIR / "models_training" / "retrain.py"
         
-        # Run in background (non-blocking) using Popen
         with open("training_log.txt", "w") as log_file:
             subprocess.Popen(
                 [sys.executable, str(script_path)],

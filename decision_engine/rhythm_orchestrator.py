@@ -1,105 +1,157 @@
-
+import uuid
 import numpy as np
+from typing import Dict, List, Any, Optional
 
-# This is a stub for rule-based logic to be imported from xai or similar
-# For now, we define a simple interface or import the existing logic if possible.
-# Ideally, xai.py's clinical rules should be separated, but to avoid huge refactors
-# we will mimic the logic here or import XAI if it provides a clean rule function.
-
-def apply_clinical_rules(features: dict):
-    """
-    Apply identifying rules (e.g. Rate checks, Regularity checks).
-    Returns (rule_label, confidence, reason) or (None, 0.0, "")
-    """
-    # Extract
-    hr = features.get("mean_hr", 0)
-    rr_cv = features.get("rr_variability", 0)
-    pr = features.get("pr_interval", 0)
-    qrs_width = features.get("qrs_width", 0)
-    
-    # 1. Asystole / Pause Check (simplistic)
-    # If not handled by artifact check, could handle here.
-    
-    # 2. Tachy/Brady
-    if hr > 150:
-        return "Supraventricular Tachycardia", 0.7, "HR > 150 bpm"
-    if hr < 45:
-        return "Sinus Bradycardia", 0.8, "HR < 45 bpm"
-    
-    # 3. AFIB Check (Irregularity)
-    if rr_cv > 0.15: # High variability
-         return "Atrial Fibrillation", 0.65, "High RR Irregularity (> 15%)"
-         
-    return None, 0.0, ""
+from decision_engine.models import (
+    SegmentDecision, 
+    SegmentState, 
+    Event, 
+    EventCategory, 
+    DisplayState
+)
+from decision_engine.rules import (
+    derive_rule_events,
+    apply_ectopy_patterns,
+    apply_display_rules,
+    apply_training_flags
+)
 
 class RhythmOrchestrator:
     def __init__(self):
         pass
 
     def decide(self, 
-               ml_prediction: dict,   # {label, probs, confidence}
-               clinical_features: dict, 
-               sqi_result: dict) -> dict:
+               ml_prediction: Dict[str, Any],   
+               clinical_features: Dict[str, Any], 
+               sqi_result: Dict[str, Any],
+               segment_index: int = 0) -> SegmentDecision:
         """
-        Arbitrate between Signal Quality, Rules, and ML.
+        Orchestrates the decision process for a single ECG segment.
         
-        Priority:
-        1. SQI Fail -> Artifact
-        2. Strong Rule Match -> Rule Label
-        3. ML Prediction
+        Args:
+            ml_prediction: Dictionary containing model outputs (label, probs, confidence)
+            clinical_features: Dictionary of calculated clinical features (HR, PR, etc.)
+            sqi_result: Dictionary containing signal quality metrics
+            segment_index: Index of the segment in the recording (default 0 for API calls)
+            
+        Returns:
+            SegmentDecision: The final decision object containing all events and states.
         """
         
-        # 1. Gating
-        if not sqi_result['is_acceptable']:
-            return {
-                "final_label": "Artifact / Noise",
-                "confidence": 1.0,
-                "source": "SQI_Gating",
-                "explanation": f"Signal Rejected: {', '.join(sqi_result['issues'])}",
-                "probabilities": [0.0]*len(ml_prediction.get('probs',[])) # Dummy
-            }
-            
-        # 2. Rule Check
-        rule_lbl, rule_conf, rule_reason = apply_clinical_rules(clinical_features)
-        
-        # 3. ML Output
-        ml_lbl = ml_prediction.get("label", "Unknown")
-        ml_conf = ml_prediction.get("confidence", 0.0)
-        ml_probs = ml_prediction.get("probs", [])
-        
-        # 4. Arbitration Logic
-        
-        # Conflict: Rule says AFib, Model says Sinus?
-        # If Rule Confidence is Very High (> 0.9), trust Rule?
-        # For now, let's say Rule acts as a 'modifier' or 'override' for safety
-        
-        final_label = ml_lbl
-        final_conf = ml_conf
-        source = "ML_Model"
-        final_reason = f"Model predicts {ml_lbl} with {ml_conf:.2f} confidence."
-        
-        # Safety Overrides
-        # If ML says NORM but HR > 150 -> Trust Rule (SVT)
-        if ml_lbl in ["Sinus Rhythm", "Sinus Tachycardia"] and rule_lbl == "Supraventricular Tachycardia":
-            final_label = rule_lbl
-            final_conf = rule_conf
-            source = "Clinical_Rule_Override"
-            final_reason = f"Model predicted {ml_lbl}, but HR > 150 indicates SVT."
-            
-        # If ML says NORM but Irregularity is HUGE -> Suggest AFib check
-        if ml_lbl == "Sinus Rhythm" and rule_lbl == "Atrial Fibrillation":
-            # Soft override or warning?
-            # Let's override if ML confidence is low
-            if ml_conf < 0.8:
-                final_label = "Atrial Fibrillation"
-                final_conf = rule_conf
-                source = "Clinical_Rule_Weak_ML"
-                final_reason = "Model unsure (conf < 0.8) and high irregularity suggests AFib."
+        # 1. Initialize SegmentDecision
+        decision = SegmentDecision(
+            segment_index=segment_index,
+            segment_state=SegmentState.ANALYZED,
+            background_rhythm="Unknown"
+        )
 
-        return {
-            "final_label": final_label,
-            "confidence": final_conf,
-            "source": source,
-            "explanation": final_reason,
-            "probabilities": ml_probs
+        # 2. Segment state checks (warmup / unreliable)
+        if not sqi_result.get('is_acceptable', True):
+            decision.segment_state = SegmentState.UNRELIABLE
+            # Fix 1: Background MUST stay Sinus/Brady/Tachy
+            decision.background_rhythm = self._detect_background_rhythm(clinical_features)
+            
+            # Create a "Artifact" event (Fix 3: Create Artifact Event ✅)
+            artifact_event = Event(
+                event_id=str(uuid.uuid4()),
+                event_type="Artifact",
+                event_category=EventCategory.RHYTHM,
+                start_time=0.0,
+                end_time=10.0,
+                priority=0,
+                used_for_training=False, # Fix 3: used_for_training = False ✅
+                display_state=DisplayState.DISPLAYED
+            )
+            decision.events.append(artifact_event)
+            # We don't manually append to final_display_events here anymore; 
+            # we let the display arbitrator handle it in step 5.
+
+        # 3. Background rhythm FIRST (Simple Rule-Based for now)
+        decision.background_rhythm = self._detect_background_rhythm(clinical_features)
+
+        # 4. Gather Events
+        # A) Rule-Derived Events
+        rule_events = derive_rule_events(clinical_features)
+        
+        # B) ML-Derived Events
+        ml_events = []
+        ml_label = ml_prediction.get("label", "Unknown")
+        ml_conf = ml_prediction.get("confidence", 0.0)
+        
+        if ml_label not in ["Sinus Rhythm", "Unknown"]:
+             # This allows ML to create Artifact events which will then be arbitrated
+             ml_events.append(self._create_event_from_ml(ml_label, ml_conf, ml_prediction, clinical_features))
+        
+        # Combine
+        decision.events = rule_events + ml_events
+        
+        # 5. Apply Complex Logic (Phase 2)
+        apply_ectopy_patterns(decision.events)
+        
+        decision.final_display_events = apply_display_rules(
+            decision.background_rhythm,
+            decision.events
+        )
+        
+        apply_training_flags(decision.events)
+        
+        # Add XAI notes for debugging/verification
+        decision.xai_notes = {
+            "initial_ml_label": ml_label,
+            "initial_ml_conf": ml_conf,
+            "clinical_hr": clinical_features.get("mean_hr")
         }
+
+        return decision
+
+    def _detect_background_rhythm(self, features: Dict[str, Any]) -> str:
+        """Determines background rhythm (Sinus variants) from HR."""
+        hr_val = features.get("mean_hr")
+        hr = float(hr_val) if hr_val is not None else 0.0
+        
+        if hr == 0:
+            return "Unknown"
+        
+        if hr < 40:
+             return "Profound Sinus Bradycardia"
+        elif hr < 60:
+             return "Sinus Bradycardia"
+        elif hr > 150:
+             return "Sinus Tachycardia" # Or SVT, but "Sinus Tachycardia" for background usually
+        elif hr > 100:
+             return "Sinus Tachycardia"
+        else:
+             return "Sinus Rhythm"
+
+    def _create_event_from_ml(self, label: str, conf: float, ml_prediction: Dict[str, Any], features: Dict[str, Any]) -> Event:
+        """Creates an Event object from ML prediction."""
+        
+        # Determine Category
+        category = EventCategory.RHYTHM
+        # Simple heuristic list - to be expanded
+        if label in ["PVC", "PAC", "Bigeminy", "Trigeminy", "Couplet", "Run", "Ventricular Run", "Atrial Run"]:
+             category = EventCategory.ECTOPY
+        
+        # Determine Priority (Stub)
+        priority = 50
+        if label in ["VT", "Ventricular Tachycardia", "VF", "Ventricular Fibrillation"]:
+            priority = 100
+        elif label in ["Atrial Fibrillation", "AFib", "AF", "Atrial Flutter"]:
+            priority = 90
+        elif label in ["SVT", "PSVT", "Supraventricular Tachycardia"]:
+            priority = 80
+        elif "Block" in label:
+            priority = 70
+        elif label in ["PVC", "PAC"]:
+            priority = 10
+            
+        return Event(
+            event_id=str(uuid.uuid4()),
+            event_type=label,
+            event_category=category,
+            start_time=0.0, # Placeholder, needs segment start context passed to decide if we want absolute time
+            end_time=10.0,  # Placeholder for 10s segment
+            ml_evidence=ml_prediction,
+            priority=priority,
+            used_for_training=True 
+        )

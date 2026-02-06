@@ -1,0 +1,32 @@
+======================================================================
+RETRAINING SESSION STARTED: 2026-02-04 17:40:59
+TASK: RHYTHM
+Log file: outputs\logs\rhythm\retrain_20260204_174059.log
+Epochs: 1, Batch Size: 4, LR: 0.0005
+======================================================================
+
+Using device: cpu
+
+🛡️  Verifying Class List Integrity...
+✅ Class Integrity Check Passed. Retraining on 15 classes.
+Connecting to DB for task: rhythm (Event-based extraction)...
+Fetched 20 segments. Extracting valid training events...
+[SQL DATASET] Loaded 15 training events into RAM.
+
+EVENT DISTRIBUTION (RHYTHM)
+  00 Supraventricular Tachycardia   -> 0
+  01 Atrial Fibrillation            -> 15
+  02 Atrial Flutter                 -> 0
+  03 Junctional Rhythm              -> 0
+  04 Idioventricular Rhythm         -> 0
+  05 Ventricular Tachycardia        -> 0
+  06 Ventricular Fibrillation       -> 0
+  07 1st Degree AV Block            -> 0
+  08 2nd Degree AV Block Type 1     -> 0
+  09 2nd Degree AV Block Type 2     -> 0
+  10 3rd Degree AV Block            -> 0
+  11 Bundle Branch Block            -> 0
+  12 Artifact                       -> 0
+  13 PSVT                           -> 0
+  14 Pause                          -> 0
+⚠️  No patient IDs found. Using simple randomized split.

@@ -20,6 +20,38 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 # ============================================================
+# EXPLICIT WINDOWING CONSTANTS (MANDATORY)
+# ============================================================
+WINDOW_SEC = 2.0
+
+def extract_fixed_window(signal, fs, start_s, end_s):
+    """
+    Extracts a fixed-length centered window of WINDOW_SEC duration.
+    - fs: sampling rate
+    - start_s, end_s: clinical event boundaries
+    """
+    window_samples = int(WINDOW_SEC * fs)
+
+    # Centered window extraction
+    center_s = (start_s + end_s) / 2.0
+    center_idx = int(center_s * fs)
+
+    half = window_samples // 2
+    start = max(0, center_idx - half)
+    end = min(len(signal), center_idx + half)
+
+    window = signal[start:end]
+
+    # Explicit pad (zero) or crop
+    if len(window) < window_samples:
+        pad = window_samples - len(window)
+        # Pad right
+        window = np.pad(window, (0, pad), mode="constant")
+    
+    # Final safety slice to ensure exact length
+    return window[:window_samples]
+
+# ============================================================
 # ============================================================
 # ============================================================
 # FINAL FIXED CLASS LIST (COMPREHENSIVE + COMBINATIONS)
@@ -70,17 +102,42 @@ CLASS_NAMES = [
     "Pause",                         # 36
 ]
 
+CLASS_INDEX = {name: i for i, name in enumerate(CLASS_NAMES)}
+
 # ============================================================
 # TASK-SPECIFIC CLASS LISTS (CHANGE 3)
 # ============================================================
 
 # RHYTHM MODEL: Detects primary pathology
-# RHYTHM MODEL: Detects primary pathology
-# Filter out "Sinus" starting classes, but KEEP "Artifact" and others.
-RHYTHM_CLASS_NAMES = [
-    name for name in CLASS_NAMES
-    if not name.startswith("Sinus") and not name.startswith("Normal") and not name.startswith("NSR") and " + " not in name
+ECTOPY_TERMS = [
+    "PVC", "PAC",
+    "Bigeminy", "Trigeminy",
+    "Couplet", "Run", "NSVT"
 ]
+
+RHYTHM_CLASS_NAMES = [
+    "Supraventricular Tachycardia",
+    "Atrial Fibrillation",
+    "Atrial Flutter",
+    "Junctional Rhythm",
+    "Idioventricular Rhythm",
+    "Ventricular Tachycardia",
+    "Ventricular Fibrillation",
+    "1st Degree AV Block",
+    "2nd Degree AV Block Type 1",
+    "2nd Degree AV Block Type 2",
+    "3rd Degree AV Block",
+    "Bundle Branch Block",
+    "Artifact",
+    "PSVT",
+    "Pause"
+]
+
+# Hard Safety Assertion
+for name in RHYTHM_CLASS_NAMES:
+    for term in ECTOPY_TERMS:
+        assert term not in name, f"ECTOPY LEAK in Rhythm model: {name}"
+
 
 # ECTOPY MODEL: Detects heart-set events
 ECTOPY_CLASS_NAMES = [

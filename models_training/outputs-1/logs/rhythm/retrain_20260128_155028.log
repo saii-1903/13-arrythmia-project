@@ -1,0 +1,45 @@
+======================================================================
+RETRAINING SESSION STARTED: 2026-01-28 15:50:28
+TASK: RHYTHM
+Log file: outputs\logs\rhythm\retrain_20260128_155028.log
+Epochs: 30, Batch Size: 32, LR: 0.0005
+======================================================================
+
+Using device: cpu
+
+🛡️  Verifying Class List Integrity...
+✅ Class Integrity Check Passed. Retraining on 25 classes.
+Connecting to DB for task: rhythm (Pre-loading optimized)...
+Executing query for task=RHYTHM...
+Executing query...
+Fetched 1472 rows. Processing...
+[SQL DATASET] Indexed 1472 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+
+CLASS DISTRIBUTION (RHYTHM)
+  00 Supraventricular Tachycardia   -> 0
+  01 Atrial Fibrillation            -> 500
+  02 Atrial Flutter                 -> 552
+  03 Junctional Rhythm              -> 0
+  04 Idioventricular Rhythm         -> 0
+  05 Ventricular Tachycardia        -> 0
+  06 Ventricular Fibrillation       -> 0
+  07 1st Degree AV Block            -> 0
+  08 2nd Degree AV Block Type 1     -> 0
+  09 2nd Degree AV Block Type 2     -> 1
+  10 3rd Degree AV Block            -> 0
+  11 PVCs                           -> 0
+  12 PVC Bigeminy                   -> 0
+  13 PVC Trigeminy                  -> 0
+  14 PVC Couplet                    -> 0
+  15 PAC                            -> 0
+  16 PAC Bigeminy                   -> 0
+  17 Bundle Branch Block            -> 0
+  18 Artifact                       -> 416
+  19 Atrial Couplet                 -> 0
+  20 Atrial Run                     -> 0
+  21 Ventricular Run                -> 0
+  22 NSVT                           -> 0
+  23 PSVT                           -> 2
+  24 Pause                          -> 1
+⚠️  Warning: Patient IDs missing. Falling back to stratified record-level split.

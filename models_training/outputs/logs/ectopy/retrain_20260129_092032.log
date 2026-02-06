@@ -1,0 +1,78 @@
+======================================================================
+RETRAINING SESSION STARTED: 2026-01-29 09:20:32
+TASK: ECTOPY
+Log file: outputs\logs\ectopy\retrain_20260129_092032.log
+Epochs: 30, Batch Size: 32, LR: 0.0005
+======================================================================
+
+Using device: cpu
+
+🛡️  Verifying Class List Integrity...
+✅ Class Integrity Check Passed. Retraining on 4 classes.
+Connecting to DB for task: ectopy (Pre-loading optimized)...
+Executing query for task=ECTOPY...
+Executing query...
+Fetched 654 rows. Processing...
+[SQL DATASET] Indexed 654 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+
+CLASS DISTRIBUTION (ECTOPY)
+  00 None                           -> 0
+  01 PVC                            -> 200
+  02 PAC                            -> 399
+  03 Run                            -> 55
+⚠️  Rare classes detected. Using TIME-BASED split without stratification.
+Connecting to DB for task: ectopy (Pre-loading optimized)...
+Executing query for task=ECTOPY...
+Executing query...
+Fetched 654 rows. Processing...
+[SQL DATASET] Indexed 654 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+Connecting to DB for task: ectopy (Pre-loading optimized)...
+Executing query for task=ECTOPY...
+Executing query...
+Fetched 654 rows. Processing...
+[SQL DATASET] Indexed 654 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+💡 No existing checkpoint found. Standard training from scratch.
+Epoch 01 | Train Loss: 0.5027 | Val Loss: 0.3654 | Bal Acc: 0.2500
+  ⭐ Saved new best model (Bal Acc: 0.2500)
+Epoch 02 | Train Loss: 0.4539 | Val Loss: 0.3082 | Bal Acc: 0.2823
+  ⭐ Saved new best model (Bal Acc: 0.2823)
+Epoch 03 | Train Loss: 0.4706 | Val Loss: 0.2900 | Bal Acc: 0.2550
+Epoch 04 | Train Loss: 0.4437 | Val Loss: 0.2992 | Bal Acc: 0.2581
+Epoch 05 | Train Loss: 0.4384 | Val Loss: 0.3155 | Bal Acc: 0.2848
+  ⭐ Saved new best model (Bal Acc: 0.2848)
+Epoch 06 | Train Loss: 0.4224 | Val Loss: 0.3283 | Bal Acc: 0.2209
+Epoch 07 | Train Loss: 0.4217 | Val Loss: 0.3566 | Bal Acc: 0.2772
+Epoch 08 | Train Loss: 0.4000 | Val Loss: 0.3544 | Bal Acc: 0.2895
+  ⭐ Saved new best model (Bal Acc: 0.2895)
+Epoch 09 | Train Loss: 0.3957 | Val Loss: 0.3017 | Bal Acc: 0.2755
+Epoch 10 | Train Loss: 0.3830 | Val Loss: 0.3182 | Bal Acc: 0.3001
+  ⭐ Saved new best model (Bal Acc: 0.3001)
+Epoch 11 | Train Loss: 0.3968 | Val Loss: 0.2983 | Bal Acc: 0.2880
+Epoch 12 | Train Loss: 0.3821 | Val Loss: 0.3018 | Bal Acc: 0.2883
+Epoch 13 | Train Loss: 0.3704 | Val Loss: 0.3024 | Bal Acc: 0.2933
+Epoch 14 | Train Loss: 0.3730 | Val Loss: 0.3128 | Bal Acc: 0.2877
+Epoch 15 | Train Loss: 0.3634 | Val Loss: 0.2972 | Bal Acc: 0.2409
+Epoch 16 | Train Loss: 0.3669 | Val Loss: 0.3204 | Bal Acc: 0.3064
+  ⭐ Saved new best model (Bal Acc: 0.3064)
+Epoch 17 | Train Loss: 0.3435 | Val Loss: 0.3057 | Bal Acc: 0.2873
+Epoch 18 | Train Loss: 0.3425 | Val Loss: 0.3037 | Bal Acc: 0.2796
+Epoch 19 | Train Loss: 0.3436 | Val Loss: 0.3069 | Bal Acc: 0.2796
+Epoch 20 | Train Loss: 0.3383 | Val Loss: 0.3082 | Bal Acc: 0.2746
+Epoch 21 | Train Loss: 0.3328 | Val Loss: 0.3047 | Bal Acc: 0.2746
+Epoch 22 | Train Loss: 0.3321 | Val Loss: 0.3111 | Bal Acc: 0.2780
+Epoch 23 | Train Loss: 0.3289 | Val Loss: 0.3171 | Bal Acc: 0.2843
+Epoch 24 | Train Loss: 0.3286 | Val Loss: 0.3106 | Bal Acc: 0.2696
+Epoch 25 | Train Loss: 0.3374 | Val Loss: 0.3068 | Bal Acc: 0.2793
+Epoch 26 | Train Loss: 0.3196 | Val Loss: 0.3055 | Bal Acc: 0.2796
+Epoch 27 | Train Loss: 0.3242 | Val Loss: 0.3073 | Bal Acc: 0.2939
+Epoch 28 | Train Loss: 0.3267 | Val Loss: 0.3044 | Bal Acc: 0.2743
+Epoch 29 | Train Loss: 0.3222 | Val Loss: 0.3034 | Bal Acc: 0.2746
+Epoch 30 | Train Loss: 0.3183 | Val Loss: 0.3038 | Bal Acc: 0.2646
+
+✅ Retraining finished. Best Balanced Accuracy: 0.3064
+
+🔧 Marking trained segments as used in Database...
+✅ Marked 654 segments as used_for_training=TRUE.

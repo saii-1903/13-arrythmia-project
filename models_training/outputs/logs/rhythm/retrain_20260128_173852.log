@@ -1,0 +1,88 @@
+======================================================================
+RETRAINING SESSION STARTED: 2026-01-28 17:38:52
+TASK: RHYTHM
+Log file: outputs\logs\rhythm\retrain_20260128_173852.log
+Epochs: 30, Batch Size: 32, LR: 0.0005
+======================================================================
+
+Using device: cpu
+
+🛡️  Verifying Class List Integrity...
+✅ Class Integrity Check Passed. Retraining on 15 classes.
+Connecting to DB for task: rhythm (Pre-loading optimized)...
+Executing query for task=RHYTHM...
+Executing query...
+Fetched 1472 rows. Processing...
+[SQL DATASET] Indexed 1472 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+
+CLASS DISTRIBUTION (RHYTHM)
+  00 Supraventricular Tachycardia   -> 0
+  01 Atrial Fibrillation            -> 500
+  02 Atrial Flutter                 -> 552
+  03 Junctional Rhythm              -> 0
+  04 Idioventricular Rhythm         -> 0
+  05 Ventricular Tachycardia        -> 0
+  06 Ventricular Fibrillation       -> 0
+  07 1st Degree AV Block            -> 0
+  08 2nd Degree AV Block Type 1     -> 0
+  09 2nd Degree AV Block Type 2     -> 1
+  10 3rd Degree AV Block            -> 0
+  11 Bundle Branch Block            -> 0
+  12 Artifact                       -> 416
+  13 PSVT                           -> 2
+  14 Pause                          -> 1
+⚠️  Rare classes detected. Using TIME-BASED split without stratification.
+Connecting to DB for task: rhythm (Pre-loading optimized)...
+Executing query for task=RHYTHM...
+Executing query...
+Fetched 1472 rows. Processing...
+[SQL DATASET] Indexed 1472 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+Connecting to DB for task: rhythm (Pre-loading optimized)...
+Executing query for task=RHYTHM...
+Executing query...
+Fetched 1472 rows. Processing...
+[SQL DATASET] Indexed 1472 segments. RAM Cache Ready.
+[SQL DATASET] All signals pre-loaded. NO SQL connections in __getitem__.
+💡 No existing checkpoint found. Standard training from scratch.
+Epoch 01 | Train Loss: 0.2045 | Val Loss: 0.0352 | Bal Acc: 0.1383
+  ⭐ Saved new best model (Bal Acc: 0.1383)
+Epoch 02 | Train Loss: 0.1024 | Val Loss: 0.0285 | Bal Acc: 0.1408
+  ⭐ Saved new best model (Bal Acc: 0.1408)
+Epoch 03 | Train Loss: 0.0860 | Val Loss: 0.0249 | Bal Acc: 0.1456
+  ⭐ Saved new best model (Bal Acc: 0.1456)
+Epoch 04 | Train Loss: 0.0787 | Val Loss: 0.0184 | Bal Acc: 0.1454
+Epoch 05 | Train Loss: 0.0775 | Val Loss: 0.0288 | Bal Acc: 0.1212
+Epoch 06 | Train Loss: 0.0750 | Val Loss: 0.0203 | Bal Acc: 0.1493
+  ⭐ Saved new best model (Bal Acc: 0.1493)
+Epoch 07 | Train Loss: 0.0697 | Val Loss: 0.0201 | Bal Acc: 0.1493
+Epoch 08 | Train Loss: 0.0657 | Val Loss: 0.0311 | Bal Acc: 0.1438
+Epoch 09 | Train Loss: 0.0609 | Val Loss: 0.0202 | Bal Acc: 0.1290
+Epoch 10 | Train Loss: 0.0614 | Val Loss: 0.0240 | Bal Acc: 0.1488
+Epoch 11 | Train Loss: 0.0608 | Val Loss: 0.0264 | Bal Acc: 0.1476
+Epoch 12 | Train Loss: 0.0607 | Val Loss: 0.0188 | Bal Acc: 0.1362
+Epoch 13 | Train Loss: 0.0529 | Val Loss: 0.0184 | Bal Acc: 0.1468
+Epoch 14 | Train Loss: 0.0539 | Val Loss: 0.0219 | Bal Acc: 0.1459
+Epoch 15 | Train Loss: 0.0514 | Val Loss: 0.0204 | Bal Acc: 0.1487
+Epoch 16 | Train Loss: 0.0521 | Val Loss: 0.0169 | Bal Acc: 0.1525
+  ⭐ Saved new best model (Bal Acc: 0.1525)
+Epoch 17 | Train Loss: 0.0516 | Val Loss: 0.0216 | Bal Acc: 0.1461
+Epoch 18 | Train Loss: 0.0509 | Val Loss: 0.0206 | Bal Acc: 0.1507
+Epoch 19 | Train Loss: 0.0512 | Val Loss: 0.0201 | Bal Acc: 0.1438
+Epoch 20 | Train Loss: 0.0503 | Val Loss: 0.0185 | Bal Acc: 0.1447
+Epoch 21 | Train Loss: 0.0488 | Val Loss: 0.0208 | Bal Acc: 0.1499
+Epoch 22 | Train Loss: 0.0461 | Val Loss: 0.0174 | Bal Acc: 0.1463
+Epoch 23 | Train Loss: 0.0471 | Val Loss: 0.0185 | Bal Acc: 0.1477
+Epoch 24 | Train Loss: 0.0495 | Val Loss: 0.0188 | Bal Acc: 0.1430
+Epoch 25 | Train Loss: 0.0505 | Val Loss: 0.0176 | Bal Acc: 0.1507
+Epoch 26 | Train Loss: 0.0422 | Val Loss: 0.0178 | Bal Acc: 0.1470
+Epoch 27 | Train Loss: 0.0429 | Val Loss: 0.0167 | Bal Acc: 0.1481
+Epoch 28 | Train Loss: 0.0455 | Val Loss: 0.0187 | Bal Acc: 0.1496
+Epoch 29 | Train Loss: 0.0444 | Val Loss: 0.0168 | Bal Acc: 0.1464
+Epoch 30 | Train Loss: 0.0459 | Val Loss: 0.0199 | Bal Acc: 0.1469
+
+✅ Retraining finished. Best Balanced Accuracy: 0.1525
+
+🔧 Marking trained segments as used in Database...
+✅ Marked 1472 segments as used_for_training=TRUE.

@@ -1,0 +1,15 @@
+======================================================================
+RETRAINING SESSION STARTED: 2026-02-04 17:39:50
+TASK: RHYTHM
+Log file: outputs\logs\rhythm\retrain_20260204_173950.log
+Epochs: 1, Batch Size: 4, LR: 0.0005
+======================================================================
+
+Using device: cpu
+
+🛡️  Verifying Class List Integrity...
+✅ Class Integrity Check Passed. Retraining on 15 classes.
+Connecting to DB for task: rhythm (Event-based extraction)...
+Fetched 20 segments. Extracting valid training events...
+[SQL DATASET] Loaded 15 training events into RAM.
+⛔ Not enough samples for training rhythm

@@ -1,0 +1,230 @@
+FILE: .\dashboard\app.py
+  QUERY: CREATE TABLE IF NOT EXISTS ecg_features_annotatable (
+                    segment_id SERIAL PRIMARY KEY,
+                    filename VARCHAR(255) NOT NULL,
+                    segment_index INT NOT NULL,
+                    segment_start_s FLOAT NOT NULL,
+                    segment_duration_s FLOAT NOT NULL,
+                    arrhythmia_label VARCHAR(50) DEFAULT NULL,
+                    arrhythmia_text_notes TEXT DEFAULT '',
+                    r_peaks_in_segment TEXT,
+                    features_json JSONB,
+                    model_pred_label TEXT,
+                    model_pred_probs JSONB,
+                    cardiologist_notes TEXT,
+                    corrected_by TEXT,
+                    corrected_at TIMESTAMP,
+                    training_round INT
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_segment
+                    ON ecg_features_annotatable (filename, segment_index);
+  QUERY: INSERT INTO ecg_features_annotatable
+                    (filename, segment_index, segment_start_s, segment_duration_s,
+                     r_peaks_in_segment, features_json)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (filename, segment_index) DO NOTHING
+  QUERY: SELECT MIN(segment_id)
+                FROM ecg_features_annotatable
+                WHERE segment_id > %s
+  QUERY: SELECT MIN(segment_id) FROM ecg_features_annotatable
+  QUERY: SELECT MAX(segment_id)
+                FROM ecg_features_annotatable
+                WHERE segment_id < %s
+  QUERY: SELECT MAX(segment_id) FROM ecg_features_annotatable
+----------------------------------------
+FILE: .\database\db_service.py
+  QUERY: SELECT filename,
+                   COUNT(*) AS segment_count,
+                   SUM(CASE WHEN arrhythmia_label IS NULL
+                               OR arrhythmia_label='Unlabeled'
+                            THEN 1 ELSE 0 END) AS unlabeled_count
+            FROM ecg_features_annotatable
+            GROUP BY filename
+            ORDER BY filename;
+  QUERY: SELECT
+                    segment_id,
+                    filename,
+                    segment_index,
+                    segment_start_s,
+                    segment_duration_s,
+                    arrhythmia_label,
+                    arrhythmia_text_notes,
+                    r_peaks_in_segment,
+                    features_json,
+                    cardiologist_notes,
+                    corrected_by,
+                    corrected_at,
+                    training_round,
+                    raw_signal,
+                    pr_interval,
+                    segment_fs,
+                    dataset_source
+                FROM ecg_features_annotatable
+                WHERE segment_id = %s
+  QUERY: UPDATE ecg_features_annotatable
+            SET 
+                arrhythmia_label = %s,    -- Doctor Rhythm
+                ectopy_label = %s,        -- Doctor Ectopy (New Column)
+                r_peaks_in_segment = %s,
+                arrhythmia_text_notes = %s,
+                corrected_by = %s,
+                corrected_at = CURRENT_TIMESTAMP,
+                
+                -- Classification Fields
+                annotation_type = %s,
+                mistake_target = %s,
+                used_for_training = FALSE, -- Reset Logic
+                
+                -- Optional: Store Model's view too if we wanted, but not in schema yet
+                model_pred_label = %s,      -- Store Rhythm Model
+                model_ectopy_label = %s     -- Store Ectopy Model
+            WHERE segment_id = %s;
+  QUERY: UPDATE ecg_features_annotatable
+            SET model_pred_label = %s,
+                model_pred_probs = %s
+            WHERE segment_id = %s;
+  QUERY: SELECT MIN(segment_id)
+            FROM ecg_features_annotatable
+            WHERE raw_signal IS NOT NULL;
+  QUERY: SELECT segment_id
+            FROM ecg_features_annotatable
+            WHERE filename = %s
+            ORDER BY segment_index ASC
+            LIMIT 1;
+  QUERY: SELECT segment_id,
+                   filename,
+                   segment_index,
+                   arrhythmia_label,
+                   model_pred_label,
+                   features_json,
+                   raw_signal,
+                   segment_fs,
+                   dataset_source
+            FROM ecg_features_annotatable
+            WHERE raw_signal IS NOT NULL
+              AND arrhythmia_label IS NOT NULL
+              AND arrhythmia_label != 'Unlabeled';
+----------------------------------------
+FILE: .\models_training\balance_dataset.py
+  QUERY: SELECT arrhythmia_label, raw_signal
+            FROM ecg_features_annotatable
+            WHERE raw_signal IS NOT NULL
+              AND arrhythmia_label IS NOT NULL
+----------------------------------------
+FILE: .\models_training\check_summary.py
+  QUERY: SELECT annotation_type, mistake_target, used_for_training, COUNT(*)
+    FROM ecg_features_annotatable
+    GROUP BY annotation_type, mistake_target, used_for_training
+    ORDER BY annotation_type, mistake_target;
+  QUERY: SELECT COUNT(*) FROM ecg_features_annotatable WHERE corrected_by IS NOT NULL AND annotation_type IS NULL
+  QUERY: SELECT COUNT(*) FROM ecg_features_annotatable WHERE annotation_type IN ('FALSE_NEGATIVE','FALSE_POSITIVE') AND mistake_target IS NULL
+----------------------------------------
+FILE: .\models_training\db_migration.py
+  QUERY: SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='ecg_features_annotatable' AND column_name='used_for_training';
+  QUERY: ALTER TABLE ecg_features_annotatable
+                        ADD COLUMN used_for_training BOOLEAN DEFAULT FALSE;
+  QUERY: SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='ecg_features_annotatable' AND column_name='mistake_target';
+  QUERY: ALTER TABLE ecg_features_annotatable
+                        ADD COLUMN mistake_target VARCHAR(20);
+  QUERY: UPDATE ecg_features_annotatable
+                        SET mistake_target = 'ECTOPY'
+                        WHERE mistake_target IS NULL 
+                          AND (
+                              arrhythmia_label ILIKE '%PVC%' OR 
+                              arrhythmia_label ILIKE '%PAC%' OR 
+                              arrhythmia_label ILIKE '%Run%' OR
+                              arrhythmia_label ILIKE '%Bigeminy%' OR
+                              arrhythmia_label ILIKE '%Trigeminy%' OR
+                              arrhythmia_label ILIKE '%Couplet%'
+                          );
+  QUERY: UPDATE ecg_features_annotatable
+                        SET mistake_target = 'RHYTHM'
+                        WHERE mistake_target IS NULL;
+----------------------------------------
+FILE: .\models_training\db_migration_ectopy.py
+  QUERY: SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='ecg_features_annotatable' AND column_name='ectopy_label';
+  QUERY: ALTER TABLE ecg_features_annotatable
+                        ADD COLUMN ectopy_label VARCHAR(50) DEFAULT 'None';
+  QUERY: SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='ecg_features_annotatable' AND column_name='model_ectopy_label';
+  QUERY: ALTER TABLE ecg_features_annotatable
+                        ADD COLUMN model_ectopy_label VARCHAR(50);
+----------------------------------------
+FILE: .\models_training\retrain.py
+  QUERY: SELECT * FROM ecg_features_annotatable LIMIT 0
+  QUERY: UPDATE ecg_features_annotatable 
+                        SET used_for_training = TRUE 
+                        WHERE segment_id = ANY(%s)
+----------------------------------------
+FILE: .\models_training\train_balanced.py
+  QUERY: SELECT * FROM ecg_features_annotatable LIMIT 0
+----------------------------------------
+FILE: .\models_training\verify_db_checklist.py
+  QUERY: SELECT current_database();
+  QUERY: SELECT to_regclass('public.ecg_features_annotatable');
+  QUERY: SELECT DISTINCT annotation_type FROM ecg_features_annotatable;
+  QUERY: SELECT DISTINCT mistake_target FROM ecg_features_annotatable;
+  QUERY: SELECT COUNT(*) FROM ecg_features_annotatable 
+        WHERE corrected_by IS NOT NULL AND annotation_type IS NULL;
+  QUERY: SELECT COUNT(*) FROM ecg_features_annotatable 
+        WHERE annotation_type IN ('FALSE_NEGATIVE','FALSE_POSITIVE') AND mistake_target IS NULL;
+  QUERY: SELECT COUNT(*) FROM ecg_features_annotatable 
+        WHERE annotation_type IS NOT NULL AND (used_for_training IS NOT FALSE);
+  QUERY: SELECT COUNT(*) FROM ecg_features_annotatable WHERE used_for_training = TRUE;
+  QUERY: SELECT segment_id, arrhythmia_label, annotation_type 
+        FROM ecg_features_annotatable 
+        WHERE annotation_type IN ('FALSE_NEGATIVE','FALSE_POSITIVE','BORDERLINE') 
+          AND mistake_target = 'RHYTHM' 
+          AND used_for_training = FALSE;
+  QUERY: SELECT segment_id, ectopy_label, annotation_type 
+        FROM ecg_features_annotatable 
+        WHERE annotation_type IN ('FALSE_NEGATIVE','FALSE_POSITIVE','BORDERLINE') 
+          AND mistake_target = 'ECTOPY' 
+          AND used_for_training = FALSE;
+  QUERY: SELECT COUNT(*) FROM ecg_features_annotatable 
+        WHERE annotation_type = 'CONFIRMED_CORRECT' AND used_for_training = FALSE;
+  QUERY: SELECT COUNT(*) AS total, COUNT(segment_start_s) AS with_time, 
+               COUNT(*) - COUNT(segment_start_s) AS missing_time 
+        FROM ecg_features_annotatable;
+  QUERY: SELECT annotation_type, mistake_target, used_for_training, COUNT(*) 
+        FROM ecg_features_annotatable 
+        GROUP BY annotation_type, mistake_target, used_for_training 
+        ORDER BY annotation_type;
+----------------------------------------
+FILE: .\scripts\check_synthetic_ids.py
+  QUERY: SELECT MIN(segment_id), MAX(segment_id), COUNT(*) FROM ecg_features_annotatable WHERE dataset_source = 'Synthetic'
+  QUERY: SELECT segment_id FROM ecg_features_annotatable WHERE dataset_source = 'Synthetic' AND arrhythmia_label = 'PAC' LIMIT 3
+  QUERY: SELECT segment_id FROM ecg_features_annotatable WHERE dataset_source = 'Synthetic' AND arrhythmia_label = 'PVC' LIMIT 3
+----------------------------------------
+FILE: .\simulation\synthesize_arrhythmias.py
+  QUERY: INSERT INTO ecg_features_annotatable 
+                    (filename, segment_index, segment_start_s, segment_duration_s, 
+                     arrhythmia_label, raw_signal, r_peaks_in_segment, segment_fs, dataset_source,
+                     features_json)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+----------------------------------------
+FILE: .\utils\ecgprocessor.py
+  QUERY: INSERT INTO ecg_features_annotatable 
+                        (filename, segment_index, segment_start_s, segment_duration_s, r_peaks_in_segment, features_json)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (filename, segment_index) DO NOTHING
+----------------------------------------
+FILE: .\xai\analyze_dataset.py
+  QUERY: SELECT arrhythmia_label, COUNT(*) as cnt
+            FROM ecg_features_annotatable
+            WHERE raw_signal IS NOT NULL
+              AND arrhythmia_label IS NOT NULL
+            GROUP BY arrhythmia_label
+            ORDER BY cnt DESC
+  QUERY: SELECT arrhythmia_label
+            FROM ecg_features_annotatable
+            WHERE raw_signal IS NOT NULL
+              AND arrhythmia_label IS NOT NULL
+----------------------------------------

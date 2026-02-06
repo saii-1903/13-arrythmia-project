@@ -115,140 +115,112 @@ def get_segment_data(segment_id: int):
         return None
     finally:
         conn.close()
-
-
 # =====================================================================
-# UPDATE SEGMENT ANNOTATION
+# NEW: FETCH FROM ecg_segments (Phase 3 Standard)
 # =====================================================================
-def update_annotation(
-    segment_id: int, 
-    # Doctor Inputs
-    doctor_rhythm_label: str,
-    doctor_ectopy_label: str,
-    r_peaks, # Not used for logic but stored
-    notes: str, 
-    corrected_by: str = "Cardiologist",
-    # Model Inputs (Required for logic)
-    model_rhythm_label: str = None,
-    model_ectopy_label: str = None,
-    doctor_uncertain: bool = False
-) -> bool:
-    """
-    Updates manual annotation and classifies the mistake for retraining.
-    Strictly follows 'Correct Annotation Logic' (Step 4 of user request).
-    """
-    conn = None
+def get_segment_new(segment_id: int) -> Dict[str, Any]:
+    """Fetches a segment from the new optimized ecg_segments table."""
+    conn = _connect()
     try:
-        conn = _connect()
-        cur = conn.cursor()
-
-        r_str = ",".join(map(str, r_peaks)) if r_peaks else ""
-
-        if doctor_rhythm_label is None or doctor_ectopy_label is None:
-            raise ValueError("Doctor must explicitly provide rhythm and ectopy labels")
-
-        if model_rhythm_label is None or model_ectopy_label is None:
-             raise ValueError("Model rhythm and ectopy labels must be provided")
-
-        doc_rhy = str(doctor_rhythm_label)
-        doc_ect = str(doctor_ectopy_label)
-        mod_rhy = str(model_rhythm_label)
-        mod_ect = str(model_ectopy_label)
-
-        annotation_type = "BORDERLINE"
-        mistake_target = None
-
-        # --- STEP 1: Determine annotation_type ---
-        
-        if doctor_uncertain:
-            annotation_type = "BORDERLINE"
-            mistake_target = "RHYTHM" # Assign to rhythm for safety if uncertain, or could be None?
-            # User said: "if doctor_uncertain: annotation_type = BORDERLINE"
-            # And "mistake_target derived from what was wrong".
-            # If uncertain, we assume the model might be wrong but we don't know why.
-            # Let's derive target from mismatch if exists, else None.
-            if doc_rhy != mod_rhy: mistake_target = "RHYTHM"
-            elif doc_ect != mod_ect: mistake_target = "ECTOPY"
-            else: mistake_target = None
-
-        # Exact Match (Everything Correct)
-        elif doc_rhy == mod_rhy and doc_ect == mod_ect:
-             annotation_type = "CONFIRMED_CORRECT"
-             mistake_target = None
-        
-        else:
-             # Mismatch Exists
-             # Priority 1: Rhythm Mismatch
-             if doc_rhy != mod_rhy:
-                 if mod_rhy == "Sinus Rhythm": # Model missed an arrhythmia
-                     annotation_type = "FALSE_NEGATIVE"
-                 else:
-                     annotation_type = "FALSE_POSITIVE" # Wrong classification
-             
-             # Priority 2: Ectopy Mismatch (if Rhythm was correct)
-             elif doc_ect != mod_ect:
-                 annotation_type = "FALSE_NEGATIVE" # Missed event logic usually FN 
-                 # (Though could be FP "False Alarm", user asked to treat mismatches carefully.
-                 # "Missed PVC/PAC -> ECTOPY" implies FN. 
-                 # Let's stick to the prompt heuristic: "missed ectopy -> FALSE_NEGATIVE"
-                 # BUT prompt specifically said "Do NOT collapse all mismatches into FN".
-                 # Let's refine: 
-                 if mod_ect == "None" and doc_ect != "None":
-                     annotation_type = "FALSE_NEGATIVE" # Missed event
-                 elif mod_ect != "None" and doc_ect == "None":
-                      annotation_type = "FALSE_POSITIVE" # False Alarm
-                 else:
-                      annotation_type = "FALSE_POSITIVE" # Wrong Class (PVC vs Run)
-
-        # --- STEP 2: Determine mistake_target ---
-        
-        if doc_rhy != mod_rhy:
-            mistake_target = "RHYTHM"  # Primary Rhythm Error
-        elif doc_ect != mod_ect:
-            mistake_target = "ECTOPY"  # Secondary Ectopy Error
-        else:
-            mistake_target = None # Should fit CONFIRMED case
-
-        # --- STEP 4: Persist (FINAL UPDATE) ---
-        cur.execute("""
-            UPDATE ecg_features_annotatable
-            SET 
-                arrhythmia_label = %s,    -- Doctor Rhythm
-                ectopy_label = %s,        -- Doctor Ectopy (New Column)
-                r_peaks_in_segment = %s,
-                arrhythmia_text_notes = %s,
-                corrected_by = %s,
-                corrected_at = CURRENT_TIMESTAMP,
-                
-                -- Classification Fields
-                annotation_type = %s,
-                mistake_target = %s,
-                used_for_training = FALSE, -- Reset Logic
-                
-                -- Optional: Store Model's view too if we wanted, but not in schema yet
-                model_pred_label = %s,      -- Store Rhythm Model
-                model_ectopy_label = %s     -- Store Ectopy Model
-            WHERE segment_id = %s;
-        """, (
-            doc_rhy, doc_ect, 
-            r_str, notes, corrected_by, 
-            annotation_type, mistake_target, 
-            mod_rhy, mod_ect,
-            segment_id
-        ))
-
-        conn.commit()
-        return cur.rowcount > 0
-
-        conn.commit()
-        return cur.rowcount > 0
-
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT segment_id, filename, segment_index, signal, features, 
+                       segment_state, background_rhythm, events_json
+                FROM ecg_segments
+                WHERE segment_id = %s
+            """, (segment_id,))
+            row = cur.fetchone()
+            if not row: return None
+            
+            return {
+                "segment_id": row[0],
+                "filename": row[1],
+                "segment_index": row[2],
+                "raw_signal": row[3] if isinstance(row[3], list) else json.loads(row[3]),
+                "features_json": row[4] if isinstance(row[4], dict) else json.loads(row[4] or "{}"),
+                "segment_state": row[5],
+                "background_rhythm": row[6],
+                "events_json": row[7] if isinstance(row[7], dict) else json.loads(row[7] or "{}")
+            }
     except Exception as e:
-        print("DB ERROR update_annotation:", e)
+        print("DB ERROR get_segment_new:", e)
+        return None
+    finally:
+        conn.close()
+
+def save_event_to_db(segment_id: int, event: Dict[str, Any]) -> bool:
+    """Appends a cardiologist event to the events_json list for a segment."""
+    conn = _connect()
+    try:
+        with conn.cursor() as cur:
+            # Fetch existing events_json from ecg_segments
+            cur.execute("SELECT events_json FROM ecg_segments WHERE segment_id = %s", (segment_id,))
+            row = cur.fetchone()
+            if not row:
+                return False
+            
+            raw_data = row[0]
+            # Handle if it's already a dict (full decision) or a list (events only)
+            if isinstance(raw_data, str):
+                data = json.loads(raw_data)
+            else:
+                data = raw_data or []
+
+            if isinstance(data, list):
+                # Legacy or simple list mode
+                data.append(event)
+            elif isinstance(data, dict) and "events" in data:
+                # Full decision mode
+                data["events"].append(event)
+                # Ensure it appears in final_display_events too
+                if "final_display_events" in data:
+                    data["final_display_events"].append(event)
+            else:
+                # Fallback
+                data = [event]
+                
+            cur.execute(
+                "UPDATE ecg_segments SET events_json = %s WHERE segment_id = %s",
+                (json.dumps(data), segment_id)
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        print("DB ERROR save_event_to_db:", e)
         return False
     finally:
-        if conn:
-            conn.close()
+        conn.close()
+
+def count_confirmed_cardiologist_events() -> int:
+    """Counts how many events marked by a cardiologist exist in the ecg_segments table."""
+    conn = _connect()
+    try:
+        with conn.cursor() as cur:
+            # Check if events_json is a list of events or a decision dict
+            # For robustness, we check both structures using JSONB operators
+            cur.execute("""
+                SELECT COUNT(*) 
+                FROM ecg_segments, 
+                LATERAL (
+                    SELECT CASE 
+                        WHEN jsonb_typeof(events_json) = 'array' THEN events_json
+                        WHEN jsonb_typeof(events_json) = 'object' AND events_json ? 'events' THEN events_json->'events'
+                        ELSE '[]'::jsonb
+                    END as event_list
+                ) AS l,
+                jsonb_array_elements(l.event_list) AS event
+                WHERE event->>'annotation_source' = 'cardiologist'
+                  AND event->>'annotation_status' = 'confirmed';
+            """)
+            row = cur.fetchone()
+            return row[0] if row else 0
+    except Exception as e:
+        print("DB ERROR count_confirmed_cardiologist_events:", e)
+        return 0
+    finally:
+        conn.close()
+
+# LEGACY update_annotation removed.
 
 # =====================================================================
 # SAVE MODEL PREDICTION (for XAI UI)
@@ -343,46 +315,4 @@ def get_first_segment_id_by_filename(filename_key: str) -> int:
     finally:
         if conn:
             conn.close()
-
-# =====================================================================
-# GET ALL CORRECTED SEGMENTS (For Export)
-# =====================================================================
-def get_all_corrected() -> List[Dict[str, Any]]:
-    conn = None
-    try:
-        conn = _connect()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT segment_id,
-                   filename,
-                   segment_index,
-                   arrhythmia_label,
-                   model_pred_label,
-                   features_json,
-                   raw_signal,
-                   segment_fs,
-                   dataset_source
-            FROM ecg_features_annotatable
-            WHERE raw_signal IS NOT NULL
-              AND arrhythmia_label IS NOT NULL
-              AND arrhythmia_label != 'Unlabeled';
-        """)
-        
-        rows = cur.fetchall()
-        cols = [
-            "segment_id", "filename", "segment_index", "arrhythmia_label",
-            "model_pred_label", "features_json", "raw_signal", "segment_fs", "dataset_source"
-        ]
-        
-        results = []
-        for r in rows:
-            results.append({cols[i]: r[i] for i in range(len(cols))})
-            
-        return results
-
-    except Exception as e:
-        print("DB ERROR get_all_corrected:", e)
-        return []
-    finally:
-        if conn:
-            conn.close()
+# LEGACY get_all_corrected removed.
